@@ -13,7 +13,6 @@ async def create_department(data: CreateDepartmentRequest, db: AsyncSession = De
     return await DepartmentController._create_department(data, db)
 
 
-# @router.get("/", response_model= ApiResponse[list[DepartmentResponse]], summary= "Get All Departments")
 @router.get("/", summary= "Get All Departments")
 async def get_departments(db: AsyncSession = Depends(get_db)):
     return await DepartmentController._get_departments(db)

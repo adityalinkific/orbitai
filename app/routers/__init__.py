@@ -7,6 +7,7 @@ from app.modules.department.department_routers import router as department_route
 from app.modules.project.project_routers import router as project_router
 from app.modules.task.task_routers import router as task_router, report_router
 from app.modules.user.user_routers import user_router
+from app.modules.meeting.meeting_routers import router as meeting_router
 
 api_router = APIRouter(prefix= "/api/v1")
 
@@ -19,3 +20,4 @@ api_router.include_router(project_router)
 api_router.include_router(task_router)
 api_router.include_router(report_router)
 api_router.include_router(user_router)
+api_router.include_router(meeting_router)

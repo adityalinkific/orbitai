@@ -5,12 +5,13 @@ from app.modules.meeting.meeting_schema import MeetingCreateRequest, MeetingUpda
 from app.modules.meeting.meeting_repository import MeetingRepository, GetMeetingRecord, DeleteMeeting
 from app.modules.project.project_model import Project
 from app.modules.auth.auth_repository import GetRecord
+from app.core.email_service import EmailService
 
 class MeetingService:
     @staticmethod
     async def create_meeting(data: MeetingCreateRequest, db: AsyncSession, current_user):
         # Verify project exists if project_id is provided
-        if data.project_id:
+        if data.project_id is not None:
             project = await GetRecord._get_one(db, Project, Project.id == data.project_id)
             if not project:
                 raise HTTPException(
@@ -32,10 +33,34 @@ class MeetingService:
             await MeetingRepository._create_meeting(db, meeting)
             await db.commit()
             await db.refresh(meeting)
-            return meeting
         except Exception:
             await db.rollback()
             raise
+
+        # Send email invites AFTER successful DB commit
+        # Email failure will NOT break the API (EmailService handles exceptions internally)
+        if data.attendee_emails:
+            organizer_name = getattr(current_user, 'name', 'The Organizer')
+            subject = f"Meeting Invite: {data.title}"
+            body = (
+                f"Hi,\n\n"
+                f"You have been invited to a meeting by {organizer_name}.\n\n"
+                f"📅  Title:       {data.title}\n"
+                f"🕒  Start Time:  {data.start_time.strftime('%A, %d %B %Y at %H:%M UTC')}\n"
+            )
+            if data.end_time:
+                body += f"🕔  End Time:    {data.end_time.strftime('%A, %d %B %Y at %H:%M UTC')}\n"
+            if data.description:
+                body += f"\n📝  Details:\n{data.description}\n"
+            body += "\nPlease update your calendar accordingly.\n\nRegards,\nOrbit Governance System"
+
+            await EmailService.send_email(
+                to=[str(email) for email in data.attendee_emails],
+                subject=subject,
+                body=body,
+            )
+
+        return meeting
 
     @staticmethod
     async def get_all_meetings(db: AsyncSession):

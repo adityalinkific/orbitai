@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class MeetingBase(BaseModel):
     title: str = Field(..., max_length=255)
@@ -12,7 +12,7 @@ class MeetingBase(BaseModel):
 
 class MeetingCreateRequest(MeetingBase):
     # organizer_id will be derived from the logged-in current_user
-    pass
+    attendee_emails: Optional[List[EmailStr]] = []
 
 class MeetingUpdateRequest(BaseModel):
     title: Optional[str] = Field(None, max_length=255)

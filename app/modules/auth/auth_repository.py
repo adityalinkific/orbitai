@@ -35,7 +35,7 @@ class GetRecord:
             # .where(User.email == email)
         )
         result = await db.execute(stmt)
-        return result.scalars().first()
+        return result.scalars().all()
     
     
 class RecordExists():

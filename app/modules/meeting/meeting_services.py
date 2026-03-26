@@ -22,6 +22,7 @@ class MeetingService:
         meeting = Meeting(
             title=data.title,
             description=data.description,
+            meeting_date=data.meeting_date,
             start_time=data.start_time,
             end_time=data.end_time,
             project_id=data.project_id,

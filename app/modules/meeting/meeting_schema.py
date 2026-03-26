@@ -1,10 +1,11 @@
 from pydantic import BaseModel, Field, EmailStr
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, List
 
 class MeetingBase(BaseModel):
     title: str = Field(..., max_length=255)
     description: Optional[str] = None
+    meeting_date: date
     start_time: datetime
     end_time: Optional[datetime] = None
     project_id: Optional[int] = None
@@ -17,6 +18,7 @@ class MeetingCreateRequest(MeetingBase):
 class MeetingUpdateRequest(BaseModel):
     title: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
+    meeting_date: Optional[date] = None
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     project_id: Optional[int] = None

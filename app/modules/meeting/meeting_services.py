@@ -66,6 +66,8 @@ class MeetingService:
             organizer_id=organizer_id
         )
 
+        organizer_name = getattr(current_user, 'name', 'The Organizer')
+
         try:
             await MeetingRepository._create_meeting(db, meeting)
             await db.commit()
@@ -83,7 +85,6 @@ class MeetingService:
 
         # Send email invites AFTER successful DB commit
         if data.attendee_emails:
-            organizer_name = getattr(current_user, 'name', 'The Organizer')
             subject = f"Meeting Invite: {data.title}"
             body = (
                 f"Hi,\n\n"

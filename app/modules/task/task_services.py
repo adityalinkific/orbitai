@@ -55,7 +55,7 @@ class TaskService:
             await db.refresh(task)
             return task
         except Exception as e:
-            await db.rollback()
+            db.rollback()
             raise
             
 
@@ -94,7 +94,7 @@ class TaskService:
             await db.refresh(task)
             return task
         except Exception:
-            await db.rollback()
+            db.rollback()
             raise
 
     @staticmethod
@@ -111,7 +111,7 @@ class TaskService:
             await db.commit()
             return
         except Exception:
-            await db.rollback()
+            db.rollback()
             raise
 
     @staticmethod
@@ -178,7 +178,7 @@ class TaskAssignService(TaskService):
             await db.refresh(assignment)
             return assignment
         except Exception:
-            await db.rollback()
+            db.rollback()
             raise
 
     @staticmethod
@@ -215,7 +215,7 @@ class TaskAssignService(TaskService):
             await db.commit()
             return updated_assignment
         except Exception:
-            await db.rollback()
+            db.rollback()
             raise
 
     
@@ -233,7 +233,7 @@ class TaskAssignService(TaskService):
             await db.commit()
             return
         except Exception:
-            await db.rollback()
+            db.rollback()
             raise
     
     
@@ -257,7 +257,7 @@ class TaskAssignService(TaskService):
             await db.commit()
             return assigned_task_status
         except Exception:
-            await db.rollback()
+            db.rollback()
             raise
         
     @staticmethod
@@ -284,6 +284,7 @@ class TaskAssignService(TaskService):
     
     @staticmethod
     async def _get_all_task_assign_detail(db: AsyncSession, current_user):
+        print('current user is ', current_user)
         if current_user.role.role in ["super_admin", "admin"]:
             assigned_tasks = await TaskDetails.get_all(db, TaskAssignment)
         else:
@@ -338,10 +339,13 @@ class AssignTaskReportServices:
             user_id = current_user.id,
             submission_text = data.submission_text if data.submission_text else None,
         )
-
+        print('devashish rajbhar')    
+            
         try:
             report = await TaskAssignmentRepository.create(db, report)
             assignment = await TaskRepository.update({"status": TaskStatusEnum.submitted}, submit_report)
+            print(report)
+            print('assign created : ', assignment)
             await db.commit()
             await db.refresh(report)
             return report
@@ -349,7 +353,6 @@ class AssignTaskReportServices:
             await db.rollback()
             raise
         
-    @staticmethod
     async def _upload_document(assign_task_id: int, link: str | None, file: UploadFile, db: AsyncSession, current_user):
         if not link and not file:
             raise HTTPException(
@@ -392,6 +395,7 @@ class AssignTaskReportServices:
             
         try:
             document = await TaskAssignmentRepository.create(db, attachment_data)
+            print(document)
             await db.commit()
             await db.refresh(document)
             return document

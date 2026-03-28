@@ -12,13 +12,6 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     
     DATABASE_URL: str
-
-    # Email (SMTP) Settings
-    MAIL_USERNAME: str
-    MAIL_PASSWORD: str
-    MAIL_FROM: str
-    MAIL_SERVER: str
-    MAIL_PORT: int
     
     LOGIN_RATE_LIMIT_MAX_REQUESTS: int
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: int

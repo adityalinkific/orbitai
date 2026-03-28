@@ -8,6 +8,7 @@ class AuthController:
     @staticmethod
     async def _register(data, db, current_user):
         user = await AuthService.register_user(data, db, current_user)
+        print(user)
         data = {
             "id": user.id,
             "emp_id": user.emp_id,

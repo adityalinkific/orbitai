@@ -38,17 +38,17 @@ async def get_current_user(request: Request, token: HTTPAuthorizationCredentials
         )
         result = await db.execute(stmt)
         user = result.scalars().first()
+        
+        if not user.logged_in:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail = await Response._error_response("You are logged out. Login again.")
+            )
 
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail= await Response._error_response("Unauthenticated")
-            )
-
-        if not user.logged_in:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail = await Response._error_response("You are logged out. Login again.")
             )
 
         if not user.is_active:

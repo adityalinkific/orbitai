@@ -23,9 +23,11 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     
-    role = relationship("Role", back_populates="users", lazy="selectin")
-    department = relationship("Department", back_populates="users", foreign_keys=[department_id], lazy="selectin")
+    role = relationship("Role", back_populates="users", lazy= "selectin")
+    department = relationship("Department", back_populates="users", lazy="selectin")
     reporting_manager = relationship("User", remote_side=[id], lazy="selectin")
+    
+    department = relationship("Department", back_populates="users", foreign_keys=[department_id])
     
 class Role(Base):
     __tablename__ = "roles"

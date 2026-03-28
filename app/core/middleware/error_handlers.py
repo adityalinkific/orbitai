@@ -28,6 +28,8 @@ async def custom_request_validation_exception_handler(request: Request, exc: Req
 
 
 async def http_exception_handler(request: Request, exc: HTTPException):
+    if isinstance(exc.detail, dict):
+        return JSONResponse(status_code=exc.status_code, content=exc.detail)
     return JSONResponse(
         status_code=exc.status_code,
         content= await Response._error_response(exc.detail)

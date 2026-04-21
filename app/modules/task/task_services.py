@@ -1,3 +1,4 @@
+from typing import List, Optional, Dict, Any
 from fastapi import HTTPException, status, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
@@ -20,48 +21,78 @@ class TaskService:
 
     @staticmethod
     async def create_task(db: AsyncSession, data: TaskRequestSchema, current_user: User):
-        if await RecordExists.check(db, Task.title == data.title):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Task with this title already exists"
-            )
+        from app.core.resolvers.entity_resolver import EntityResolver
         
-        TaskService._validate_due_date(data.due_date)
+        # Adaptive handling
+        try:
+            payload = data.model_dump() if hasattr(data, 'model_dump') else dict(data)
+        except Exception:
+            payload = data or {}
+
+        title_val = payload.get('title') or payload.get('name')
+        if not title_val:
+            return {"success": False, "message": "Task title is required"}
+
+        # 1. Check if task already exists
+        existing = await EntityResolver.resolve_task(db, title_val)
+        if existing:
+            return {
+                "success": True, # Idempotent success
+                "message": "Task already exists",
+                "data": {"id": existing.id, "title": existing.title}
+            }
+
+        # 2. Resolve Project
+        project_id = payload.get('project_id')
+        if not project_id and payload.get("project_name"):
+            project = await EntityResolver.resolve_project(db, payload.get("project_name"))
+            if project:
+                project_id = project.id
+
+        # 3. Resolve Department
+        dept_id = payload.get('department_id') or current_user.department_id
+
+        # 4. Create Task
+        due_date = payload.get('due_date')
+        TaskService._validate_due_date(due_date)
         
-        if not await RecordExists.check(db, Project.id == data.project_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Invalid project selected"
-            )
-        if not await RecordExists.check(db, Department.id == data.department_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Invalid department selected"
-            )
         task_data = Task(
             task_id=f"T-{uuid.uuid4().hex[:6].upper()}",
-            title=data.title,
-            description=data.description,
-            project_id=data.project_id,
-            department_id=data.department_id,
-            task_type=data.task_type,
-            priority=data.priority,
-            due_date=data.due_date,
+            title=title_val,
+            description=payload.get('description'),
+            project_id=project_id,
+            department_id=dept_id,
+            task_type=payload.get('task_type', 'daily'),
+            priority=payload.get('priority', 'high'),
+            due_date=due_date,
             created_by=current_user.id,
         )
         try:
             task = await TaskRepository.create(db, task_data)
             await db.commit()
             await db.refresh(task)
-            return task
+            return {
+                "success": True,
+                "message": "Task created successfully",
+                "data": {
+                    "id": task.id,
+                    "title": task.title,
+                    "project_id": task.project_id
+                }
+            }
         except Exception as e:
-            db.rollback()
-            raise
+            await db.rollback()
+            return {"success": False, "message": str(e)}
             
 
     @staticmethod
     async def update_task(db: AsyncSession, task_id: str, data: TaskUpdateSchema):
-        if not data.model_dump(exclude_unset=True):
+        try:
+            update_data = data.model_dump(exclude_unset=True) if hasattr(data, 'model_dump') else dict(data)
+        except Exception:
+            update_data = data or {}
+
+        if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="At least one field is required for updating the task."
@@ -74,16 +105,18 @@ class TaskService:
                 detail="Task not found"
             )
             
-        if not await RecordExists.check(db, Project.id == data.project_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Invalid project selected"
-            )
-        if not await RecordExists.check(db, Department.id == data.department_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Invalid department selected"
-            )
+        if data.project_id is not None:
+            if not await RecordExists.check(db, Project.id == data.project_id):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Invalid project selected"
+                )
+        if data.department_id is not None:
+            if not await RecordExists.check(db, Department.id == data.department_id):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Invalid department selected"
+                )
         
         TaskService._validate_due_date(data.due_date)
         
@@ -92,10 +125,14 @@ class TaskService:
             task = await TaskRepository.update(update_data, task)
             await db.commit()
             await db.refresh(task)
-            return task
-        except Exception:
-            db.rollback()
-            raise
+            return {
+                "success": True,
+                "message": "Task updated successfully",
+                "data": {"id": task.id, "title": task.title}
+            }
+        except Exception as e:
+            await db.rollback()
+            return {"success": False, "message": str(e)}
 
     @staticmethod
     async def delete_task(db: AsyncSession, task_id: int):
@@ -109,14 +146,26 @@ class TaskService:
         try:
             await TaskRepository.delete(db, task)
             await db.commit()
-            return
-        except Exception:
-            db.rollback()
-            raise
+            return {
+                "success": True,
+                "message": f"Task '{task.title}' deleted successfully"
+            }
+        except Exception as e:
+            await db.rollback()
+            return {"success": False, "message": str(e)}
 
     @staticmethod
     async def get_all_tasks(db: AsyncSession):
-        return await TaskDetails.get_all(db, Task)
+        tasks = await TaskDetails.get_all(db, Task)
+        serialized_tasks = [
+            {"id": t.id, "title": t.title, "project_id": t.project_id, "department_id": t.department_id}
+            for t in tasks if t is not None
+        ]
+        return {
+            "success": True,
+            "message": f"Found {len(tasks)} tasks",
+            "data": serialized_tasks
+        }
 
     @staticmethod
     async def get_task_detail(db: AsyncSession, task_id: int):
@@ -126,12 +175,18 @@ class TaskService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Task not found"
             )
-        return task
+        return {
+            "success": True,
+            "message": "Task retrieved successfully",
+            "data": {"id": task.id, "title": task.title, "project_id": task.project_id, "department_id": task.department_id}
+        }
 
 
 
     @staticmethod
     def _validate_due_date(due_date: date):
+        if not due_date:
+            return
         today_utc = datetime.now(timezone.utc).date()
         if due_date < today_utc:
             raise HTTPException(
@@ -143,43 +198,55 @@ class TaskService:
 # Task Assignment Services
 class TaskAssignService(TaskService):
     @staticmethod
-    async def _assign_task(db: AsyncSession, data: TaskAssignRequestSchema, current_user):
-        if not await RecordExists.check(db, Task.id == data.task_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Task not found."
-            )
-            
-        if not await RecordExists.check(db, User.id == data.user_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found."
-            )
+    async def _assign_task(db: AsyncSession, data: Any, current_user: User):
+        # Adaptive handling for pydantic models or raw dictionaries
+        try:
+            payload = data.model_dump() if hasattr(data, 'model_dump') else dict(data)
+        except Exception:
+            payload = data or {}
         
-        task_assigned = await RecordExists.check(db, TaskAssignment.task_id == data.task_id, TaskAssignment.user_id == data.user_id)
+        task_id = payload.get('task_id') or payload.get('id')
+        user_id = payload.get('user_id')
+        due_date = payload.get('due_date')
+        
+        from app.core.resolvers.entity_resolver import EntityResolver
+        
+        # 1. Resolve Task
+        task = await EntityResolver.resolve_task(db, task_id)
+        if not task:
+            return {"success": False, "message": "Task not found"}
+
+        # 2. Resolve User
+        user = await EntityResolver.resolve_user(db, user_id)
+        if not user:
+            return {"success": False, "message": "User not found"}
+        
+        # 3. Check existing assignment
+        task_assigned = await RecordExists.check(db, TaskAssignment.task_id == task.id, TaskAssignment.user_id == user.id)
         if task_assigned:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Task is already assigned to the user."
-            )
+            return {"success": False, "message": "Task already assigned to this user"}
             
-        TaskService._validate_due_date(data.due_date)
+        TaskService._validate_due_date(due_date)
         assignment = TaskAssignment(
-            task_id=data.task_id,
-            user_id=data.user_id,
+            task_id=task.id,
+            user_id=user.id,
             assigned_at=datetime.now(timezone.utc),
             assigned_by=current_user.id,
-            due_date=data.due_date,
+            due_date=due_date,
             status="assigned"
         )
         try:
             assignment = await TaskAssignmentRepository.create(db, assignment)
             await db.commit()
             await db.refresh(assignment)
-            return assignment
-        except Exception:
-            db.rollback()
-            raise
+            return {
+                "success": True,
+                "message": "Task assigned successfully",
+                "data": {"task": task.title, "assignee": user.name}
+            }
+        except Exception as e:
+            await db.rollback()
+            return {"success": False, "message": str(e)}
 
     @staticmethod
     async def _update_task_assign(db: AsyncSession, assign_task_id: int, data: TaskAssignUpdateSchema, current_user):

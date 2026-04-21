@@ -33,3 +33,11 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.40.0
 gunicorn
+openai
+pyyaml
+fastapi-mail
+pytest-ordering
+pytest-asyncio
+pytest
+pytest-timeout
+httpx

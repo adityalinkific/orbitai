@@ -3,9 +3,9 @@ from datetime import datetime
 
 
 class CreateDepartmentRequest(BaseModel):
-    name: str = Field(..., min_length=3, max_length=50)
+    name: str = Field(..., min_length=1, max_length=50)
     description: str = Field(None, max_length=255)
-    department_head_id: int = Field(None)
+    department_head_id: int | None = Field(None)
     is_active: bool | None = Field(None)
     
     
@@ -32,7 +32,7 @@ class DepartmentResponse(BaseModel):
     updated_at: datetime
     
 class UpdateDepartmentRequest(BaseModel):
-    name: str | None = Field(None, min_length=3, max_length=50)
+    name: str | None = Field(None, min_length=1, max_length=50)
     description: str = Field(None, max_length=255)
     department_head_id: int | None = Field(None)
     is_active: bool | None = Field(None)

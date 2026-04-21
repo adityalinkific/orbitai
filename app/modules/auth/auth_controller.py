@@ -7,28 +7,33 @@ class AuthController:
 
     @staticmethod
     async def _register(data, db, current_user):
-        user = await AuthService.register_user(data, db, current_user)
-        print(user)
-        data = {
-            "id": user.id,
-            "emp_id": user.emp_id,
-            "name": user.name,
-            "email": user.email,
-            "role_id": user.role_id,
-            "department_id": user.department_id,
-            "reporting_manager_id": user.reporting_manager_id
+        user_response = await AuthService.register_user(data, db, current_user)
+        
+        if isinstance(user_response, dict):
+            if user_response.get("status") == "error":
+                from fastapi import HTTPException
+                raise HTTPException(status_code=400, detail=user_response.get("message"))
+            # For success, use the data dictionary directly from the service
+            resp_data = user_response.get("data", {})
+            return await Response._success_response(user_response.get("message", "User registered successfully"), resp_data)
+        
+        # Fallback if an ORM object is somehow returned
+        resp_data = {
+            "id": user_response.id,
+            "emp_id": user_response.emp_id,
+            "name": user_response.name,
+            "email": user_response.email,
+            "role_id": user_response.role_id,
+            "department_id": user_response.department_id,
+            "reporting_manager_id": user_response.reporting_manager_id
         }
-        return await Response._success_response("User registered successfully", data)
+        return await Response._success_response("User registered successfully", resp_data)
         
         
     @staticmethod
     async def _login(data, db):
-        token = await AuthService.login_user(data, db)
-        data = {
-            "access_token": token,
-            "token_type": "Bearer"
-        }
-        return await Response._success_response("Login successful", data)
+        login_data = await AuthService.login_user(data, db)
+        return await Response._success_response("Login successful", login_data)
         
     
     @staticmethod

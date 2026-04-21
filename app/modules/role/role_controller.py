@@ -22,17 +22,29 @@ class RoleController:
 
     @staticmethod
     async def get_roles(db: AsyncSession):
-        roles = await RoleService._get_roles(db)
-        data = [
-            {
-                "id": role.id,
-                "role": role.role,
-                "description": role.description,
-                "created_at": role.created_at,
-                "updated_at": role.updated_at
-            }
-            for role in roles
-        ]
+        response = await RoleService._get_roles(db)
+        # Extract the data list from the response
+        roles = response.get("data", [])
+        data = []
+        for role in roles:
+            if hasattr(role, 'id'):
+                # It's a Role object
+                data.append({
+                    "id": role.id,
+                    "role": role.role,
+                    "description": role.description,
+                    "created_at": role.created_at,
+                    "updated_at": role.updated_at
+                })
+            else:
+                # It's a dict (fallback)
+                data.append({
+                    "id": role.get("id"),
+                    "role": role.get("role"),
+                    "description": None,
+                    "created_at": None,
+                    "updated_at": None
+                })
         return await Response._success_response("Roles fetched successfully", data)
 
 
@@ -41,11 +53,11 @@ class RoleController:
     async def _get_perticular_role(role_id, db):
         role = await RoleService._get_role(role_id, db)
         data =  {
-            "id": role.id,
-            "role": role.role,
-            "description": role.description,
-            "created_at": role.created_at,
-            "updated_at": role.updated_at
+            "id": role["data"]["id"],
+            "role": role["data"]["role"],
+            "description": role["data"]["description"],
+            "created_at": role["data"]["created_at"],
+            "updated_at": role["data"]["updated_at"]
         }
         return await Response._success_response("Roles fetched successfully", data)
         
@@ -58,5 +70,5 @@ class RoleController:
     
     @staticmethod
     async def _delete_role(role_id, db):
-        await RoleService._delete(role_id, db)
-        return await Response._success_response("Role deleted successfully")
+        result = await RoleService._delete(role_id, db)
+        return await Response._success_response(result["message"])

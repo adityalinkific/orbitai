@@ -34,7 +34,19 @@ class RoleService:
     @staticmethod
     async def _get_roles(db: AsyncSession):
         roles = await GetDetail._get_all(db, Role)
-        return roles
+        # Handle both Role objects and potential string returns
+        data = []
+        for r in roles:
+            if hasattr(r, 'id'):
+                data.append(r)  # Return full Role object
+            else:
+                # If it's a string (role name), create a minimal Role object
+                data.append({"id": None, "role": str(r)})
+        return {
+            "success": True,
+            "message": f"Found {len(roles)} roles",
+            "data": data
+        }
     
     
     @staticmethod
@@ -45,7 +57,10 @@ class RoleService:
                 status_code= status.HTTP_404_NOT_FOUND,
                 detail= "Role not found."
             )
-        return role_detail
+        return {
+            "success": True,
+            "data": {"id": role_detail.id, "role": role_detail.role, "description": role_detail.description, "created_at": role_detail.created_at, "updated_at": role_detail.updated_at}
+        }
     
     
     
@@ -70,27 +85,43 @@ class RoleService:
             result = await RoleRepository._update(update_data, role_detail)
             await db.commit()
             await db.refresh(result)
-            return result
-        except Exception:
+            return {
+                "success": True,
+                "message": "Role updated successfully",
+                "data": {"id": result.id, "role": result.role}
+            }
+        except Exception as e:
             await db.rollback()
-            raise
+            return {"success": False, "message": str(e)}
     
     
     
     @staticmethod
     async def _delete(role_id: int, db: AsyncSession):
-        role_detail = await GetDetail._get_one(db, Role, Role.id == role_id)        
+        from app.modules.auth.auth_model import User
+        role_detail = await GetDetail._get_one(db, Role, Role.id == role_id)
         if not role_detail:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Role not found"
             )
-        
+
+        # Check if any users are assigned to this role
+        users_with_role = await GetDetail._get_all(db, User, User.role_id == role_id)
+        if users_with_role:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot delete role '{role_detail.role}' because it is assigned to {len(users_with_role)} user(s). Please reassign or delete the users first."
+            )
+
         try:
             await RoleRepository._delete(db, role_detail)
             await db.commit()
-            return
-        
-        except Exception:
+            return {"success": True, "message": f"Role '{role_detail.role}' deleted successfully"}
+
+        except Exception as e:
             await db.rollback()
-            raise
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot delete role: {str(e)}"
+            )

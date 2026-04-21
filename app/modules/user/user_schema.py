@@ -27,6 +27,7 @@ class ChangePassword(BaseModel):
     
 class UpdateUserDetailsRequest(BaseModel):
     name: str | None = None
+    email: str | None = None
     password: str | None = None
     role_id: int | None = None
     reporting_manager_id: int | None = None

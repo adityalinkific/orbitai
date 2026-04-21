@@ -11,7 +11,7 @@ from app.modules.user.user_schema import ChangePassword, UpdateUserDetailsReques
 
 user_router = APIRouter(prefix= '/user', tags= ['User'])
 
-@user_router.get('/all-users', response_model= ApiResponse[list[UserResponse]], summary= "All Users Details")
+@user_router.get('/all-users', summary= "All Users Details")
 async def all_users(db: AsyncSession = Depends(get_db), current_user= Depends(require_roles('super_admin', 'admin'))):
     return await UserController._all_user(db)
 

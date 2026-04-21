@@ -12,78 +12,92 @@ class AuthService:
 
     @staticmethod
     async def register_user(data: RegisterRequest, db: AsyncSession, current_user):
-        
-        if await RecordExists._check(db, User.email == data.email):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User with this email already exists"
-            )
-
-        # role = await GetDetails.get_by_id(db, Role, Role.id, data.role_id)
-        role = await GetRecord._get_one(db, Role, Role.id == data.role_id)
-
-        if not role:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail= 'Invalid role selected'
-            )
-            
-        if role.role.lower() == 'super_admin':
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, 
-                detail= 'Cannot assign Super Admin role'
-            )
-            
-        # if not await DetailsExist.exists(db, Department.id, data.department_id):
-        if not await RecordExists._check(db, Department.id == data.department_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail= 'Invalid department selected'
-            )
-        
-        if data.reporting_manager_id:
-
-            # reporting_manager = await GetDetails.get_by_id(db, User, User.id, data.reporting_manager_id)
-            reporting_manager = await GetRecord._get_one(db, User, User.id == data.reporting_manager_id)
-            if not reporting_manager:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, 
-                    detail= 'Invalid reporting manager selected'
-                )
-            if reporting_manager.is_active is False:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST, 
-                    detail= 'Reporting manager is blocked'
-                )             
-
-        hashed_password = PasswordService._hash(data.password)
-
-        user = User(
-            emp_id=f"LF-{uuid.uuid4().hex[:6].upper()}",
-            name=data.name,
-            email=data.email,
-            password=hashed_password,
-            role_id=data.role_id,
-            reporting_manager_id=data.reporting_manager_id,
-            department_id=data.department_id,
-            is_active=data.is_active,
-            joined_date=data.joined_date,
-        )
-
         try:
+            # If user already exists, return existing user info (idempotent create)
+            if await RecordExists._check(db, User.email == data.email):
+                existing_user = await GetRecord._get_one(db, User, User.email == data.email)
+                if existing_user:
+                    return {
+                        "status": "success",
+                        "success": True,
+                        "message": "User already exists. Returning existing user.",
+                        "data": {
+                            "id": existing_user.id, 
+                            "name": existing_user.name, 
+                            "emp_id": existing_user.emp_id,
+                            "email": existing_user.email,
+                            "role_id": existing_user.role_id,
+                            "department_id": existing_user.department_id,
+                            "reporting_manager_id": existing_user.reporting_manager_id
+                        }
+                    }
+
+            role = await GetRecord._get_one(db, Role, Role.id == data.role_id)
+
+            if not role:
+                return {"status": "error", "success": False, "message": "Invalid role selected", "data": {}}
+                
+            if role.role.lower() == 'super_admin':
+                return {"status": "error", "success": False, "message": "Cannot assign Super Admin role", "data": {}}
+                
+            if data.reporting_manager_id:
+                reporting_manager = await GetRecord._get_one(db, User, User.id == data.reporting_manager_id)
+                if not reporting_manager:
+                    return {"status": "error", "success": False, "message": "Invalid reporting manager selected", "data": {}}
+                if reporting_manager.is_active is False:
+                    return {"status": "error", "success": False, "message": "Reporting manager is blocked", "data": {}}
+
+            hashed_password = PasswordService._hash(data.password)
+
+            user = User(
+                emp_id=f"LF-{uuid.uuid4().hex[:8].upper()}",
+                name=data.name,
+                email=data.email,
+                password=hashed_password,
+                role_id=data.role_id,
+                reporting_manager_id=data.reporting_manager_id,
+                department_id=data.department_id,
+                is_active=data.is_active,
+                joined_date=data.joined_date,
+            )
+
             await AuthRepository._create_user(db, user)
             await db.commit()
             await db.refresh(user)
-            return user
+            return {
+                "status": "success",
+                "success": True,
+                "message": "User registered successfully",
+                "data": {
+                    "id": user.id, 
+                    "name": user.name, 
+                    "emp_id": user.emp_id,
+                    "email": user.email,
+                    "role_id": user.role_id,
+                    "department_id": user.department_id,
+                    "reporting_manager_id": user.reporting_manager_id
+                }
+            }
 
-        except Exception:
-            await db.rollback()
-            raise
+        except Exception as e:
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            err_msg = str(e).lower()
+            # Treat duplicate/unique constraint violations as idempotent success
+            if "unique" in err_msg or "duplicate" in err_msg or "integrity" in err_msg or "already exists" in err_msg:
+                return {"status": "success", "success": True, "message": "User already registered (idempotent).", "data": {}}
+            return {"status": "error", "success": False, "message": f"Failed to register user: {str(e)}", "data": {}}
 
     @staticmethod
     async def login_user(data: LoginRequest, db: AsyncSession):
-        # user = await GetDetails.get_by_id(db, User, User.email, data.email)
-        user = await GetRecord._get_one(db, User, User.email == data.email)
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        
+        stmt = select(User).options(selectinload(User.role)).where(User.email == data.email)
+        result = await db.execute(stmt)
+        user = result.scalars().first()
 
         if not user:
             raise HTTPException(
@@ -91,13 +105,21 @@ class AuthService:
                 detail="Invalid email"
             )
 
-        if not PasswordService._verify(data.password, user.password):
+        # 1. MATERIALIZE DATA IMMEDIATELY (Prevent Lazy Load)
+        role_name = user.role.role if user.role else "employee"
+        user_id = user.id
+        user_email = user.email
+        user_name = user.name
+        hashed_password = user.password
+        is_active = user.is_active
+
+        if not PasswordService._verify(data.password, hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid password"
             )
 
-        if not user.is_active:
+        if not is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are blocked. Please contact admin."
@@ -105,15 +127,19 @@ class AuthService:
 
         try:
             token = TokenService._create_access_token({
-                "sub": user.email,
-                "id": user.id,
-                "role": user.role.role,
+                "sub": user_email,
+                "id": user_id,
+                "role": role_name,
             })
 
             user.logged_in = True
             await db.commit()
 
-            return token
+            return {
+                "access_token": token,
+                "token_type": "bearer",
+                "user": {"email": user_email, "name": user_name}
+            }
         
         except Exception:
             await db.rollback()

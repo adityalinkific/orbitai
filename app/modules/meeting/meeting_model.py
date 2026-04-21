@@ -10,7 +10,6 @@ class Meeting(Base):
     title = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
     start_time = Column(DateTime(timezone=True), nullable=False)
-    end_time = Column(DateTime(timezone=True), nullable=True)
     organizer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
     status = Column(String(50), default="Scheduled", nullable=False) # e.g., Scheduled, Completed, Cancelled

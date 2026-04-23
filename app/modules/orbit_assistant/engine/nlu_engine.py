@@ -209,7 +209,7 @@ INTENT_PATTERNS = {
         r"update (?P<name>[\w\s]+) task (?P<field>\w+) (?:into|to) (?P<value>.+)",
         r"rename (?P<name>[\w\s]+) task to (?P<new_name>[\w\s]+)"
     ],
-    "DELETE_TASK": [r"delete (?P<name>[\w\s]+) task", r"remove (?P<name>[\w\s]+) task"],
+    "DELETE_TASK": [r"delete (?P<name>[\w\s]+) task", r"remove (?P<name>[\w\s]+) task", r"delete task (?:named )?(?P<name>[\w\s]+)", r"remove task (?:named )?(?P<name>[\w\s]+)"],
     "CLOSE_TASK": [r"close (?P<name>[\w\s]+) task", r"mark (?P<name>[\w\s]+) (?:as )?done", r"close task (?P<name>[\w\s]+)"],
     "LIST_USERS": [r"list all users", r"show all users", r"list users", r"show users", r"test LIST_USERS", r"LIST_USERS"],
     "UPDATE_USER": [

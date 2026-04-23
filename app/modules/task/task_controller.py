@@ -20,21 +20,22 @@ class TaskController:
 
 
     async def _get_all_task_detail(db):
-        tasks = await TaskService.get_all_tasks(db)
+        result = await TaskService.get_all_tasks(db)
+        tasks = result.get("data", []) if isinstance(result, dict) else result
         data = [
             {
-                'id': task.id,
-                'task_id': task.task_id,
-                'title': task.title,
-                'description': task.description,
-                'project_id': task.project_id,
-                'department_id': task.department_id,
-                'task_type': task.task_type,
-                'priority': task.priority,
-                'due_date': task.due_date,
-                'created_by': task.created_by,
-                'created_at': task.created_at,
-                'updated_at': task.updated_at
+                'id': task.get('id') if isinstance(task, dict) else task.id,
+                'task_id': task.get('task_id') if isinstance(task, dict) else task.task_id,
+                'title': task.get('title') if isinstance(task, dict) else task.title,
+                'description': task.get('description') if isinstance(task, dict) else task.description,
+                'project_id': task.get('project_id') if isinstance(task, dict) else task.project_id,
+                'department_id': task.get('department_id') if isinstance(task, dict) else task.department_id,
+                'task_type': task.get('task_type') if isinstance(task, dict) else task.task_type,
+                'priority': task.get('priority') if isinstance(task, dict) else task.priority,
+                'due_date': task.get('due_date') if isinstance(task, dict) else task.due_date,
+                'created_by': task.get('created_by') if isinstance(task, dict) else task.created_by,
+                'created_at': task.get('created_at') if isinstance(task, dict) else task.created_at,
+                'updated_at': task.get('updated_at') if isinstance(task, dict) else task.updated_at
             } for task in tasks
         ]
         return await Response._success_response("Task details fetched successfully", data)

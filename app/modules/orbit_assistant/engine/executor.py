@@ -411,6 +411,12 @@ class Executor:
                 # Cast to integer if it's a numeric string to prevent type mismatch
                 if task_id and isinstance(task_id, str) and task_id.isdigit():
                     task_id = int(task_id)
+                # If task_id is not provided but name is, resolve task by name
+                if not task_id and entities.get('name'):
+                    from app.core.resolvers.entity_resolver import EntityResolver
+                    task = await EntityResolver.resolve_task(db, entities.get('name'), session_id)
+                    if task:
+                        task_id = task.id
                 kwargs['task_id'] = task_id
             
             if 'id' in params and 'task_id' not in params:

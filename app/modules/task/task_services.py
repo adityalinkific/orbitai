@@ -158,7 +158,20 @@ class TaskService:
     async def get_all_tasks(db: AsyncSession):
         tasks = await TaskDetails.get_all(db, Task)
         serialized_tasks = [
-            {"id": t.id, "title": t.title, "project_id": t.project_id, "department_id": t.department_id}
+            {
+                "id": t.id,
+                "task_id": t.task_id,
+                "title": t.title,
+                "description": t.description,
+                "project_id": t.project_id,
+                "department_id": t.department_id,
+                "task_type": t.task_type,
+                "priority": t.priority,
+                "due_date": t.due_date,
+                "created_by": t.created_by,
+                "created_at": t.created_at,
+                "updated_at": t.updated_at
+            }
             for t in tasks if t is not None
         ]
         return {

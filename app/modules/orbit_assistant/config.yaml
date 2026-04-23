@@ -576,6 +576,83 @@ intents:
       - cancel meeting
       - remove meeting
 
+  UPDATE_TASK_PROGRESS:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ServiceBridge
+    method: _handle_update_task_progress
+    description: "Update task progress"
+    destructive: false
+    examples:
+      - update task progress
+      - mark progress
+      - set progress
+
+  REQUEST_HELP:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ServiceBridge
+    method: _handle_request_help
+    description: "Request help from manager"
+    destructive: false
+    examples:
+      - request help
+      - need assistance
+      - ask for help
+
+  JOIN_MEETING:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ServiceBridge
+    method: _handle_join_meeting
+    description: "Join a meeting"
+    destructive: false
+    examples:
+      - join meeting
+      - attend meeting
+      - join the meeting
+
+  SHOW_PERSONAL_DASHBOARD:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ServiceBridge
+    method: _handle_show_personal_dashboard
+    description: "Show personal dashboard"
+    destructive: false
+    examples:
+      - show my dashboard
+      - personal dashboard
+      - my dashboard
+
+  SHOW_EXECUTION_GUIDANCE:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ServiceBridge
+    method: _handle_show_execution_guidance
+    description: "Show execution guidance"
+    destructive: false
+    examples:
+      - what should i do next
+      - show execution guidance
+      - execution guidance
+
+  SHOW_EXPECTED_OUTPUT:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ServiceBridge
+    method: _handle_show_expected_output
+    description: "Show expected output"
+    destructive: false
+    examples:
+      - show expected output
+      - expected output
+      - output criteria
+
+  SHOW_NEXT_STEP:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ServiceBridge
+    method: _handle_show_execution_guidance
+    description: "Show next step"
+    destructive: false
+    examples:
+      - show next step
+      - next step
+      - what's next
+
 # ─────────────────────────────────────────────────────────
 # Workflows — Multi-step compound operations
 # ─────────────────────────────────────────────────────────

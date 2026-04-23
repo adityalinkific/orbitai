@@ -407,7 +407,18 @@ class Executor:
             if 'project_id' in params or 'id' in params:
                 kwargs['project_id'] = entities.get('project_id', entities.get('id'))
             if 'task_id' in params:
-                kwargs['task_id'] = entities.get('task_id', entities.get('id'))
+                task_id = entities.get('task_id', entities.get('id'))
+                # Cast to integer if it's a numeric string to prevent type mismatch
+                if task_id and isinstance(task_id, str) and task_id.isdigit():
+                    task_id = int(task_id)
+                kwargs['task_id'] = task_id
+            
+            if 'id' in params and 'task_id' not in params:
+                id_val = entities.get('id', entities.get('task_id'))
+                # Cast to integer if it's a numeric string to prevent type mismatch
+                if id_val and isinstance(id_val, str) and id_val.isdigit():
+                    id_val = int(id_val)
+                kwargs['id'] = id_val
             
             try:
                 log.debug(f"Calling service {service_name}.{actual_method_name} with kwargs keys: {list(kwargs.keys())}")

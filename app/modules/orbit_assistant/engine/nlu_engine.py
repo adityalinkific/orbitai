@@ -253,9 +253,17 @@ INTENT_PATTERNS = {
     "SHOW_DEPARTMENT_DASHBOARD": [r"show (?:department|dept) dashboard", r"test SHOW_DEPARTMENT_DASHBOARD", r"SHOW_DEPARTMENT_DASHBOARD", r"department dashboard", r"dept dashboard"],
     "UPDATE_MEETING": [r"update (?:the )?meeting", r"reschedule meeting", r"change meeting", r"test UPDATE_MEETING", r"UPDATE_MEETING"],
     "DELETE_MEETING": [r"delete meeting", r"cancel meeting", r"remove meeting", r"test DELETE_MEETING", r"DELETE_MEETING"],
-    "REPORT_BLOCKER": [r"report blocker", r"i (?:am |'m )stuck", r"task (?:is )?blocked", r"i have a blocker", r"test REPORT_BLOCKER", r"REPORT_BLOCKER"],
+    "REPORT_BLOCKER": [r"report blocker (?:for )?(?:task )?(?P<task_id>[\d]+)?", r"i (?:am |'m )stuck", r"task (?:is )?blocked", r"i have a blocker (?:on )?(?:task )?(?P<task_id>[\d]+)?", r"test REPORT_BLOCKER", r"REPORT_BLOCKER"],
     "SHOW_TEAM_DASHBOARD": [r"show team dashboard", r"team dashboard", r"test SHOW_TEAM_DASHBOARD", r"SHOW_TEAM_DASHBOARD"],
+    "UPDATE_TASK_PROGRESS": [r"update task progress (?:to )?(?P<progress>[\d%]+)", r"mark task progress (?P<progress>[\d%]+)", r"set progress to (?P<progress>[\d%]+)", r"test UPDATE_TASK_PROGRESS", r"UPDATE_TASK_PROGRESS"],
+    "REQUEST_HELP": [r"request help", r"i need help", r"need assistance", r"ask for help", r"test REQUEST_HELP", r"REQUEST_HELP"],
+    "JOIN_MEETING": [r"join meeting (?P<meeting_id>[\d]+)", r"join (?:the )?meeting (?P<meeting_id>[\d]+)", r"attend meeting (?P<meeting_id>[\d]+)", r"test JOIN_MEETING", r"JOIN_MEETING"],
+    "SHOW_PERSONAL_DASHBOARD": [r"show (?:my )?dashboard", r"personal dashboard", r"my dashboard", r"test SHOW_PERSONAL_DASHBOARD", r"SHOW_PERSONAL_DASHBOARD"],
+    "SHOW_EXECUTION_GUIDANCE": [r"what should i do next", r"show execution guidance", r"execution guidance", r"test SHOW_EXECUTION_GUIDANCE", r"SHOW_EXECUTION_GUIDANCE"],
+    "SHOW_EXPECTED_OUTPUT": [r"show expected output", r"expected output", r"test SHOW_EXPECTED_OUTPUT", r"SHOW_EXPECTED_OUTPUT"],
+    "SHOW_NEXT_STEP": [r"show next step", r"next step", r"what's next", r"show my next step", r"test SHOW_NEXT_STEP", r"SHOW_NEXT_STEP"],
 }
+
 
 def _normalize_input(user_message: str) -> str:
     """

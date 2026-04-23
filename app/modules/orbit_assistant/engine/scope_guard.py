@@ -202,7 +202,11 @@ class ScopeGuard:
         # Validate task scope (organization-wide task visibility)
         if "task_id" in entities:
             from app.modules.task.task_model import Task
-            task_stmt = select(Task).where(Task.id == entities["task_id"])
+            # Cast task_id to integer if it's a numeric string
+            task_id = entities["task_id"]
+            if isinstance(task_id, str) and task_id.isdigit():
+                task_id = int(task_id)
+            task_stmt = select(Task).where(Task.id == task_id)
             task_res = await db.execute(task_stmt)
             task = task_res.scalar_one_or_none()
 
@@ -260,7 +264,11 @@ class ScopeGuard:
         # Validate task scope
         if "task_id" in entities:
             from app.modules.task.task_model import Task
-            task_stmt = select(Task).where(Task.id == entities["task_id"])
+            # Cast task_id to integer if it's a numeric string
+            task_id = entities["task_id"]
+            if isinstance(task_id, str) and task_id.isdigit():
+                task_id = int(task_id)
+            task_stmt = select(Task).where(Task.id == task_id)
             task_res = await db.execute(task_stmt)
             task = task_res.scalar_one_or_none()
 
@@ -349,7 +357,11 @@ class ScopeGuard:
         # Validate task scope (manager can access tasks in their department)
         if "task_id" in entities:
             from app.modules.task.task_model import Task
-            task_stmt = select(Task).where(Task.id == entities["task_id"])
+            # Cast task_id to integer if it's a numeric string
+            task_id = entities["task_id"]
+            if isinstance(task_id, str) and task_id.isdigit():
+                task_id = int(task_id)
+            task_stmt = select(Task).where(Task.id == task_id)
             task_res = await db.execute(task_stmt)
             task = task_res.scalar_one_or_none()
 
@@ -390,7 +402,12 @@ class ScopeGuard:
 
         # Validate task operations (employee can only operate on assigned tasks)
         if "task_id" in entities:
-            task_stmt = select(Task).where(Task.id == entities["task_id"])
+            # Cast task_id to integer if it's a numeric string
+            task_id = entities["task_id"]
+            if isinstance(task_id, str) and task_id.isdigit():
+                task_id = int(task_id)
+            
+            task_stmt = select(Task).where(Task.id == task_id)
             task_res = await db.execute(task_stmt)
             task = task_res.scalar_one_or_none()
 
@@ -450,7 +467,11 @@ class ScopeGuard:
 
         # Validate task operations (intern can only operate on assigned tasks)
         if "task_id" in entities:
-            task_stmt = select(Task).where(Task.id == entities["task_id"])
+            # Cast task_id to integer if it's a numeric string
+            task_id = entities["task_id"]
+            if isinstance(task_id, str) and task_id.isdigit():
+                task_id = int(task_id)
+            task_stmt = select(Task).where(Task.id == task_id)
             task_res = await db.execute(task_stmt)
             task = task_res.scalar_one_or_none()
 

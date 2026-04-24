@@ -10,12 +10,12 @@ class TaskController:
 
 
     async def _update_task(db, task_id, data):
-        await TaskService.update_task(db, task_id, data)
+        await TaskService.update_task(db, int(task_id), data)
         return await Response._success_response("Task updated successfully")
 
 
     async def _delete_task(db, task_id):
-        await TaskService.delete_task(db, task_id)
+        await TaskService.delete_task(db, int(task_id))
         return await Response._success_response("Task deleted successfully")
 
 
@@ -41,7 +41,7 @@ class TaskController:
 
 
     async def _get_task_detail(db, task_id, current_user):
-        task = await TaskService.get_task_detail(db, task_id)
+        task = await TaskService.get_task_detail(db, int(task_id))
         data = {
             'id': task.id,
             'task_id': task.task_id,
@@ -73,23 +73,23 @@ class TaskAssignController:
     
     @staticmethod
     async def _update_task_assign(db, assign_task_id, data, current_user):
-        await TaskAssignService._update_task_assign(db, assign_task_id, data, current_user)
+        await TaskAssignService._update_task_assign(db, int(assign_task_id), data, current_user)
         return await Response._success_response("Task assignment updated successfully")
     
     
     @staticmethod
     async def _delete_task_assign(db, assign_task_id):
-        await TaskAssignService._delete_task_assign(db, assign_task_id)
+        await TaskAssignService._delete_task_assign(db, int(assign_task_id))
         return await Response._success_response("Task assignment deleted successfully")
     
     @staticmethod
     async def _update_task_status(db, assign_task_id, data):
-        await TaskAssignService._update_task_status(db, assign_task_id, data)
+        await TaskAssignService._update_task_status(db, int(assign_task_id), data)
         return await Response._success_response("Assigned task status updated successfully")
 
     @staticmethod
     async def _get_task_assign_detail(db, assign_task_id, current_user):
-        assigned_task = await TaskAssignService._get_task_assign_detail(db, assign_task_id, current_user)
+        assigned_task = await TaskAssignService._get_task_assign_detail(db, int(assign_task_id), current_user)
         data = {
             'id': assigned_task.id,
             'task_id': assigned_task.task_id,
@@ -146,7 +146,7 @@ class AssignTaskReportController:
       
         
     async def _get_pending_report_by_id(assign_task_id: int, db, current_user):
-        pending_report = await AssignTaskReportServices._get_pending_report_by_id(db, assign_task_id, current_user)
+        pending_report = await AssignTaskReportServices._get_pending_report_by_id(db, int(assign_task_id), current_user)
         data = {
             'id': pending_report.id,
             'task_id': pending_report.task_id,
@@ -166,5 +166,5 @@ class AssignTaskReportController:
         return await Response._success_response('Task is submitted')
         
     async def _upload_document(assign_task_id, link, file, db, current_user):
-        await AssignTaskReportServices._upload_document(assign_task_id, link, file, db, current_user)
+        await AssignTaskReportServices._upload_document(int(assign_task_id), link, file, db, current_user)
         return await Response._success_response('Document uploaded successfully.')

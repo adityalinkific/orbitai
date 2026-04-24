@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
 from app.modules.department.department_model import Department
-from app.modules.project.project_model import Project
+from app.modules.project.project_model import Project, ProjectStatusEnum
 from app.modules.project.project_schema import ProjectRequestSchema, ProjectUpdateSchema
 from app.modules.project.project_repository import ProjectRepository, DetailsExist, GetProjects
 
@@ -44,6 +44,7 @@ class ProjectService:
         project_data = Project(
             name=name_val,
             description=desc_val,
+            status=ProjectStatusEnum.active,
             department_id=dept_id,
         )
         try:
@@ -65,6 +66,24 @@ class ProjectService:
             update_data = data.model_dump(exclude_unset=True) if hasattr(data, 'model_dump') else dict(data)
         except Exception:
             update_data = data or {}
+            
+        # Sanitize data to prevent NLU metadata from breaking DB update
+        for key in ["id", "project_id", "task_id", "intent"]:
+            update_data.pop(key, None)
+            
+        # Map NLU specific 'field' and 'value' format
+        if "field" in update_data and "value" in update_data:
+            field = update_data.pop("field").lower()
+            val = update_data.pop("value")
+            update_data[field] = val
+            
+        # Map 'new_name' to 'name'
+        if "new_name" in update_data:
+            update_data["name"] = update_data.pop("new_name")
+            
+        # Ensure only valid updatable fields remain
+        valid_fields = {"name", "description", "department_id", "status"}
+        update_data = {k: v for k, v in update_data.items() if k in valid_fields}
             
         if not update_data:
             raise HTTPException(

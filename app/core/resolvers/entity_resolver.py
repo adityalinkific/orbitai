@@ -18,6 +18,7 @@ from app.modules.orbit_assistant.engine.context_manager import context_manager
 # Noise words to strip from entity names
 NOISE_WORDS = [
     r"\bproject\b", r"\btask\b", r"\bdepartment\b", r"\buser\b",
+    r"\bid\b", r"\bnamed\b", r"\bcalled\b", r"\bthe\b", r"\ba\b", r"\ban\b"
     r"\bnamed\b", r"\bcalled\b", r"\bthe\b", r"\ba\b", r"\ban\b"
 ]
 
@@ -30,6 +31,11 @@ class EntityResolver:
     def _clean_name(name: str) -> str:
         if not name: return ""
         clean = name.lower()
+        # Remove punctuation that may wrap names or IDs
+        clean = re.sub(r"[\"'`#,:;]", "", clean)
+        for word in NOISE_WORDS:
+            clean = re.sub(word, "", clean)
+        clean = re.sub(r"\s+", " ", clean)
         for word in NOISE_WORDS:
             clean = re.sub(word, "", clean)
         return clean.strip()
@@ -81,6 +87,12 @@ class EntityResolver:
 
         if not clean_name: return None
 
+        if "@" in clean_name:
+            stmt = select(User).where(User.email.ilike(clean_name))
+            result = await db.execute(stmt)
+            user = result.scalars().first()
+            if user: return user
+
         stmt = select(User).where(User.name.ilike(clean_name))
         result = await db.execute(stmt)
         user = result.scalars().first()
@@ -96,6 +108,13 @@ class EntityResolver:
         
         if clean_name.isdigit():
             task = await db.get(Task, int(clean_name))
+            if task: return task
+
+        # Support explicit task_id lookup when the identifier is a UUID or task token.
+        if clean_name:
+            stmt = select(Task).where(Task.task_id == clean_name)
+            result = await db.execute(stmt)
+            task = result.scalars().first()
             if task: return task
 
         if not clean_name or clean_name in ["it", "this", "task", "job"]:

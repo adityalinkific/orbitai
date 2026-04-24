@@ -187,6 +187,13 @@ ROLE_CAPABILITIES = {
         "GET_PROJECT",
         "UPDATE_PROJECT",
 
+        "CREATE_TASK",
+        "LIST_TASKS",
+        "GET_TASK",
+        "UPDATE_TASK",
+        "DELETE_TASK",
+        "ASSIGN_TASK",
+        "CLOSE_TASK",
         "LIST_TASKS",
         "GET_TASK",
 

@@ -29,6 +29,7 @@ class DepartmentController:
         
     @staticmethod
     async def _get_perticular_department(department_id, db):
+        response = await DepartmentService._get_department(int(department_id), db)
         response = await DepartmentService._get_department(department_id, db)
         # The service already processes the data, just return it
         return response
@@ -36,11 +37,11 @@ class DepartmentController:
     
     @staticmethod
     async def _update_department(department_id, data, db):
-        await DepartmentService._update_department(department_id, data, db)
+        await DepartmentService._update_department(int(department_id), data, db)
         return await Response._success_response('Department updated successfully.')
         
     
     @staticmethod
     async def _delete_department(department_id, db):
-        await DepartmentService._delete(department_id, db)
+        await DepartmentService._delete(int(department_id), db)
         return await Response._success_response('Department deleted successfully.')

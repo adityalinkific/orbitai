@@ -91,6 +91,24 @@ class TaskService:
             update_data = data.model_dump(exclude_unset=True) if hasattr(data, 'model_dump') else dict(data)
         except Exception:
             update_data = data or {}
+            
+        # Sanitize data to prevent NLU metadata from breaking DB update
+        for key in ["id", "project_id", "task_id", "intent"]:
+            update_data.pop(key, None)
+            
+        # Map NLU specific 'field' and 'value' format
+        if "field" in update_data and "value" in update_data:
+            field = update_data.pop("field").lower()
+            val = update_data.pop("value")
+            update_data[field] = val
+            
+        # Map 'new_name' to 'title'
+        if "new_name" in update_data:
+            update_data["title"] = update_data.pop("new_name")
+            
+        # Ensure only valid updatable fields remain
+        valid_fields = {"title", "description", "project_id", "department_id", "task_type", "priority", "due_date"}
+        update_data = {k: v for k, v in update_data.items() if k in valid_fields}
 
         if not update_data:
             raise HTTPException(
@@ -105,12 +123,19 @@ class TaskService:
                 detail="Task not found"
             )
             
+        project_id = update_data.get("project_id")
+        if project_id is not None:
+            if not await RecordExists.check(db, Project.id == project_id):
         if data.project_id is not None:
             if not await RecordExists.check(db, Project.id == data.project_id):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Invalid project selected"
                 )
+                
+        department_id = update_data.get("department_id")
+        if department_id is not None:
+            if not await RecordExists.check(db, Department.id == department_id):
         if data.department_id is not None:
             if not await RecordExists.check(db, Department.id == data.department_id):
                 raise HTTPException(
@@ -120,7 +145,9 @@ class TaskService:
         
         TaskService._validate_due_date(data.due_date)
         
-        update_data = data.model_dump(exclude_unset=True)
+        due_date = update_data.get("due_date")
+        if due_date is not None:
+            TaskService._validate_due_date(due_date)
         try:
             task = await TaskRepository.update(update_data, task)
             await db.commit()
@@ -205,6 +232,17 @@ class TaskAssignService(TaskService):
         except Exception:
             payload = data or {}
         
+        task_id = (
+            payload.get('task_id')
+            or payload.get('id')
+            or payload.get('task')
+            or payload.get('task_title')
+        )
+        user_id = (
+            payload.get('user_id')
+            or payload.get('user')
+            or payload.get('user_name')
+        )
         task_id = payload.get('task_id') or payload.get('id')
         user_id = payload.get('user_id')
         due_date = payload.get('due_date')

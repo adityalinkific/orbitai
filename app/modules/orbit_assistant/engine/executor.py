@@ -307,6 +307,18 @@ class Executor:
                 # For UPDATE_DEPARTMENT, also try to resolve from the old name
                 if not dept_id and entities.get('department'):
                     dept_id = await RequestValidator.resolve_department_id(db, entities.get('department'))
+                
+                try:
+                    kwargs['department_id'] = int(dept_id) if dept_id else 1
+                except ValueError:
+                    kwargs['department_id'] = dept_id if dept_id else 1
+                    
+            if 'role_id' in params:
+                try:
+                    kwargs['role_id'] = int(entities.get('role_id', 1))  # Default to ID 1 if not provided
+                except ValueError:
+                    kwargs['role_id'] = entities.get('role_id', 1)
+                    
                 kwargs['department_id'] = dept_id if dept_id else 1
             if 'role_id' in params:
                 kwargs['role_id'] = entities.get('role_id', 1)  # Default to ID 1 if not provided
@@ -318,6 +330,11 @@ class Executor:
                 if not user_id and entities.get('username'):
                     # If username is provided, try to find the user by username
                     user_id = await RequestValidator.resolve_user_id(db, entities.get('username'))
+                
+                try:
+                    kwargs['user_id'] = int(user_id) if user_id else (user.id if hasattr(user, 'id') else 1)
+                except ValueError:
+                    kwargs['user_id'] = user_id if user_id else (user.id if hasattr(user, 'id') else 1)
                 kwargs['user_id'] = user_id if user_id else (user.id if hasattr(user, 'id') else 1)
             if 'current_user' in params:
                 kwargs['current_user'] = user
@@ -404,6 +421,34 @@ class Executor:
                     kwargs['data'] = UpdateUserDetailsRequest(**user_data)
                 else:
                     kwargs['data'] = entities
+            if 'project_id' in params:
+                val = entities.get('project_id', entities.get('id'))
+                if val is not None:
+                    try:
+                        kwargs['project_id'] = int(val)
+                    except ValueError:
+                        kwargs['project_id'] = val
+                else:
+                    kwargs['project_id'] = None
+            elif 'id' in params:
+                val = entities.get('id', entities.get('project_id'))
+                if val is not None:
+                    try:
+                        kwargs['id'] = int(val)
+                    except ValueError:
+                        kwargs['id'] = val
+                else:
+                    kwargs['id'] = None
+            
+            if 'task_id' in params:
+                val = entities.get('task_id', entities.get('id'))
+                if val is not None:
+                    try:
+                        kwargs['task_id'] = int(val)
+                    except ValueError:
+                        kwargs['task_id'] = val
+                else:
+                    kwargs['task_id'] = None
             if 'project_id' in params or 'id' in params:
                 kwargs['project_id'] = entities.get('project_id', entities.get('id'))
             if 'task_id' in params:

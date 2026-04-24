@@ -194,6 +194,8 @@ ROLE_CAPABILITIES = {
         "DELETE_TASK",
         "ASSIGN_TASK",
         "CLOSE_TASK",
+        "LIST_TASKS",
+        "GET_TASK",
 
         "CREATE_MEETING",
         "UPDATE_MEETING",

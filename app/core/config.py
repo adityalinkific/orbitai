@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # Orbit Assistant (Now configured for Groq's Free Llama3 Models)
     XAI_API_KEY: str = ""
+    XAI_API_KEY: str = "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"
     GROK_BASE_URL: str = "https://api.groq.com/openai/v1"
     GROK_MODEL: str = "llama-3.1-8b-instant"
     ASSISTANT_CONFIDENCE_THRESHOLD: float = 0.8

@@ -126,6 +126,8 @@ class TaskService:
         project_id = update_data.get("project_id")
         if project_id is not None:
             if not await RecordExists.check(db, Project.id == project_id):
+        if data.project_id is not None:
+            if not await RecordExists.check(db, Project.id == data.project_id):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Invalid project selected"
@@ -134,10 +136,14 @@ class TaskService:
         department_id = update_data.get("department_id")
         if department_id is not None:
             if not await RecordExists.check(db, Department.id == department_id):
+        if data.department_id is not None:
+            if not await RecordExists.check(db, Department.id == data.department_id):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Invalid department selected"
                 )
+        
+        TaskService._validate_due_date(data.due_date)
         
         due_date = update_data.get("due_date")
         if due_date is not None:
@@ -237,6 +243,8 @@ class TaskAssignService(TaskService):
             or payload.get('user')
             or payload.get('user_name')
         )
+        task_id = payload.get('task_id') or payload.get('id')
+        user_id = payload.get('user_id')
         due_date = payload.get('due_date')
         
         from app.core.resolvers.entity_resolver import EntityResolver

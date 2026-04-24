@@ -30,6 +30,7 @@ class DepartmentController:
     @staticmethod
     async def _get_perticular_department(department_id, db):
         response = await DepartmentService._get_department(int(department_id), db)
+        response = await DepartmentService._get_department(department_id, db)
         # The service already processes the data, just return it
         return response
         

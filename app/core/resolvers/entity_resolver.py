@@ -19,6 +19,7 @@ from app.modules.orbit_assistant.engine.context_manager import context_manager
 NOISE_WORDS = [
     r"\bproject\b", r"\btask\b", r"\bdepartment\b", r"\buser\b",
     r"\bid\b", r"\bnamed\b", r"\bcalled\b", r"\bthe\b", r"\ba\b", r"\ban\b"
+    r"\bnamed\b", r"\bcalled\b", r"\bthe\b", r"\ba\b", r"\ban\b"
 ]
 
 class EntityResolver:
@@ -35,6 +36,8 @@ class EntityResolver:
         for word in NOISE_WORDS:
             clean = re.sub(word, "", clean)
         clean = re.sub(r"\s+", " ", clean)
+        for word in NOISE_WORDS:
+            clean = re.sub(word, "", clean)
         return clean.strip()
 
     @staticmethod

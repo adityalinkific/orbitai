@@ -25,6 +25,8 @@ def _clean_name(name: str) -> str:
 async def _resolve_project(db, name: str):
     clean_name = _clean_name(name)
     stmt = select(Project).where(Project.name.ilike(f"%{clean_name}%"))
+async def _resolve_project(db, name: str):
+    stmt = select(Project).where(Project.name.ilike(f"%{name}%"))
     res = await db.execute(stmt)
     return res.scalars().first()
 
@@ -32,6 +34,7 @@ async def _resolve_project(db, name: str):
 async def _resolve_user(db, name: str):
     clean_name = _clean_name(name)
     stmt = select(User).where(User.name.ilike(f"%{clean_name}%"))
+    stmt = select(User).where(User.name.ilike(f"%{name}%"))
     res = await db.execute(stmt)
     return res.scalars().first()
 
@@ -39,6 +42,7 @@ async def _resolve_user(db, name: str):
 async def _resolve_department(db, name: str):
     clean_name = _clean_name(name)
     stmt = select(Department).where(Department.name.ilike(f"%{clean_name}%"))
+    stmt = select(Department).where(Department.name.ilike(f"%{name}%"))
     res = await db.execute(stmt)
     return res.scalars().first()
 
@@ -50,6 +54,7 @@ async def _resolve_task(db, title: str):
         if task:
             return task
     stmt = select(Task).where(Task.title.ilike(f"%{clean_title}%"))
+    stmt = select(Task).where(Task.title.ilike(f"%{title}%"))
     res = await db.execute(stmt)
     return res.scalars().first()
 
@@ -92,5 +97,6 @@ async def resolve_entities(intent: str, entities: Dict[str, Any], session):
         task = await _resolve_task(db, entities["task"])
         if task:
             entities["task_id"] = task.id
+            entities["task_id"] = task.task_id
 
     return entities

@@ -319,6 +319,9 @@ class Executor:
                 except ValueError:
                     kwargs['role_id'] = entities.get('role_id', 1)
                     
+                kwargs['department_id'] = dept_id if dept_id else 1
+            if 'role_id' in params:
+                kwargs['role_id'] = entities.get('role_id', 1)  # Default to ID 1 if not provided
             if 'user_id' in params:
                 user_id = entities.get('user_id')
                 if not user_id and entities.get('name'):
@@ -332,6 +335,7 @@ class Executor:
                     kwargs['user_id'] = int(user_id) if user_id else (user.id if hasattr(user, 'id') else 1)
                 except ValueError:
                     kwargs['user_id'] = user_id if user_id else (user.id if hasattr(user, 'id') else 1)
+                kwargs['user_id'] = user_id if user_id else (user.id if hasattr(user, 'id') else 1)
             if 'current_user' in params:
                 kwargs['current_user'] = user
             # Always pass current_user to AuthService.register_user if it's a static method that doesn't require it
@@ -445,6 +449,10 @@ class Executor:
                         kwargs['task_id'] = val
                 else:
                     kwargs['task_id'] = None
+            if 'project_id' in params or 'id' in params:
+                kwargs['project_id'] = entities.get('project_id', entities.get('id'))
+            if 'task_id' in params:
+                kwargs['task_id'] = entities.get('task_id', entities.get('id'))
             
             try:
                 log.debug(f"Calling service {service_name}.{actual_method_name} with kwargs keys: {list(kwargs.keys())}")

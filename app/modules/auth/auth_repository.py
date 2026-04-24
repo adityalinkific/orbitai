@@ -2,20 +2,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, exists
 from sqlalchemy.orm import selectinload
 from app.modules.auth.auth_model import User
+from app.core.base_repository import BaseRepository
 
 
-class AuthRepository:
-    @staticmethod
-    async def _create_user(db: AsyncSession, user: User):
-        db.add(user)
-        return user
+class AuthRepository(BaseRepository):
+    """Auth repository with standard CRUD operations."""
     
-    @staticmethod
-    async def _update(update_data: dict, instance: any):
-        for field, value in update_data.items():
-            setattr(instance, field, value)
-        return instance
-    
+    def __init__(self):
+        super().__init__(User)
+
+
+# Legacy compatibility - keep for gradual migration
 class GetRecord:
     @staticmethod
     async def _get_one(db: AsyncSession, model, *conditions):
@@ -32,20 +29,18 @@ class GetRecord:
                 selectinload(User.department)
             )
             .order_by(User.id.desc())
-            # .where(User.email == email)
         )
         result = await db.execute(stmt)
         return result.scalars().first()
     
-    
-class RecordExists():
+class RecordExists:
     @staticmethod
     async def _check(db: AsyncSession, *conditions) -> bool:
         stmt = select(exists().where(*conditions))
         result = await db.execute(stmt)
         return result.scalar()
     
-class DeleteUser():
+class DeleteUser:
     @staticmethod
     async def _delete_user(db: AsyncSession, user):
         return await db.delete(user)

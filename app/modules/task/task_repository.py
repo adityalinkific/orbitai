@@ -2,45 +2,58 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import exists, select
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
-
 from app.modules.task.task_model import Task, TaskAssignment, Report, ReportAttachment, ReportReview, TaskStatusEnum
+from app.core.base_repository import BaseRepository
 
 
-class TaskRepository:
-
-    @staticmethod
-    async def create(db: AsyncSession, task: Task):
-        db.add(task)
-        return task
-
-    @staticmethod
-    async def update(update_data: dict, instance: any):
-        for field, value in update_data.items():
-            setattr(instance, field, value)
-        
-        return instance
-
-    @staticmethod
-    async def delete(db: AsyncSession, instance: any):
-        await db.delete(instance)
-        return
+class TaskRepository(BaseRepository):
+    """Task repository with standard CRUD operations."""
     
+    def __init__(self):
+        super().__init__(Task)
     
-class RecordExists():
+    @staticmethod
+    async def get_by_task_id(db: AsyncSession, task_id: str):
+        """Get task by task_id string."""
+        stmt = select(Task).where(Task.task_id == task_id)
+        result = await db.execute(stmt)
+        return result.scalars().first()
 
+
+class TaskAssignmentRepository(BaseRepository):
+    """Task assignment repository with standard CRUD operations."""
+    
+    def __init__(self):
+        super().__init__(TaskAssignment)
+    
+    @staticmethod
+    async def get_with_relations(db: AsyncSession, assign_task_id: int):
+        """Get task assignment with task and report relations."""
+        stmt = (
+            select(TaskAssignment)
+            .where(TaskAssignment.id == assign_task_id)
+            .options(
+                joinedload(TaskAssignment.task),
+                joinedload(TaskAssignment.report)
+            )
+        )
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+
+
+# Legacy compatibility - keep for gradual migration
+class RecordExists:
     @staticmethod
     async def check(db: AsyncSession, *conditions) -> bool:
         stmt = select(exists().where(*conditions))
         result = await db.execute(stmt)
         return result.scalar()
-        
-        
+
 class TaskDetails:
     @staticmethod
     async def get_by_id(db: AsyncSession, id: int):
-        stmt = select(Task).where(Task.id == id)
-        result = await db.execute(stmt)
-        return result.scalars().first()
+        repo = TaskRepository()
+        return await repo.get_by_id(db, id)
     
     @staticmethod
     async def get_one(db: AsyncSession, model, *conditions):
@@ -58,29 +71,11 @@ class TaskDetails:
     
     @staticmethod
     async def get_by_task_id(db: AsyncSession, task_id: str):
-        stmt = select(Task).where(Task.task_id == task_id)
-        result = await db.execute(stmt)
-        return result.scalars().first()
+        return await TaskRepository.get_by_task_id(db, task_id)
     
     @staticmethod
     async def get_assignment(db, assign_task_id):
-        stmt = (
-            select(TaskAssignment)
-            .where(TaskAssignment.id == assign_task_id)
-            .options(
-                joinedload(TaskAssignment.task),
-                joinedload(TaskAssignment.report)
-            )
-        )
-        result = await db.execute(stmt)
-        return result.scalar_one_or_none()
-
-class TaskAssignmentRepository:
-    
-    @staticmethod
-    async def create(db: AsyncSession, task_assignment):
-        db.add(task_assignment)
-        return task_assignment
+        return await TaskAssignmentRepository.get_with_relations(db, assign_task_id)
     
 
 # class ReportRepository:

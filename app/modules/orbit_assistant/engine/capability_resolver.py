@@ -125,6 +125,7 @@ ROLE_CAPABILITIES = {
         "UPDATE_DEPARTMENT",
         "DELETE_DEPARTMENT",
         "ENTERPRISE_REASONING",
+        "AI_ORG_INSIGHTS",
 
         "CREATE_PROJECT",
         "LIST_PROJECTS",
@@ -151,9 +152,13 @@ ROLE_CAPABILITIES = {
         "LIST_MY_INFO",
 
         "LIST_USERS",
+        "UPDATE_USER",
+        "DELETE_USER",
         "LIST_DEPARTMENTS",
         "GET_DEPARTMENT",
         "LIST_ROLES",
+        "UPDATE_ROLE",
+        "UPDATE_PERMISSIONS",
 
         "LIST_PROJECTS",
         "GET_PROJECT",

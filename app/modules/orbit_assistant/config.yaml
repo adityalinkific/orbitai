@@ -176,6 +176,17 @@ intents:
       - erase project
       - cancel project
 
+  START_PROJECT:
+    allowed_roles: [super_admin, admin, manager]
+    service: ProjectService
+    method: start_project
+    description: "Start a project (change status to active)"
+    destructive: false
+    examples:
+      - start project
+      - activate project
+      - begin project
+
   # ── Department Intents ──
   CREATE_DEPARTMENT:
     allowed_roles: [super_admin, admin]
@@ -265,6 +276,17 @@ intents:
       - edit user
       - change user
 
+  DELETE_USER:
+    allowed_roles: [super_admin, admin]
+    service: Executor
+    method: _handle_delete_user
+    description: "Delete a user"
+    is_destructive: true
+    examples:
+      - delete user
+      - remove user
+      - delete employee
+
   UPDATE_EMAIL:
     allowed_roles: [super_admin, admin]
     service: Executor
@@ -337,118 +359,12 @@ intents:
       - modify permissions
 
   # ── Email Intents ──
-  SEND_EMAIL:
-    allowed_roles: [super_admin, admin, manager, employee, intern]
-    service: ServiceBridge
-    method: _handle_send_email
-    description: "Send an email"
-    destructive: false
-  SYSTEM_STATUS:
-    allowed_roles: [super_admin, admin]
-    service: ServiceBridge
-    method: _handle_system_status
-    description: "Show system status"
-    destructive: false
-  ENTERPRISE_REASONING:
-    allowed_roles: [super_admin, admin]
-    service: ServiceBridge
-    method: _handle_enterprise_reasoning
-    description: "Enterprise reasoning and strategic planning"
-    destructive: false
-    examples:
-      - send email
-      - email
-      - send mail
-      - compose email
-
-  SEND_NOTIFICATION:
-    allowed_roles: [super_admin, admin, manager]
-    service: ServiceBridge
-    method: _handle_send_notification
-    description: "Send a notification"
-    destructive: false
-    examples:
-      - send notification
-      - notify
-      - broadcast message
+  # REMOVED: SEND_EMAIL, SYSTEM_STATUS, ENTERPRISE_REASONING, SEND_NOTIFICATION
+  # These features are not yet implemented. Removed to prevent misleading users.
 
   # ── Admin/Enterprise Analytics & Dashboards ──
-  AI_ORG_INSIGHTS:
-    allowed_roles: [super_admin, admin]
-    service: ServiceBridge
-    method: _handle_ai_org_insights
-    description: "AI-powered organization insights"
-    destructive: false
-    examples:
-      - ai organization insights
-      - show ai insights
-      - analyze organization
-
-  DEPARTMENT_STATUS_REPORT:
-    allowed_roles: [super_admin, admin, manager]
-    service: ServiceBridge
-    method: _handle_department_status_report
-    description: "Department status report"
-    destructive: false
-    examples:
-      - department status report
-      - show department status
-      - department report
-
-  LIST_MEETINGS:
-    allowed_roles: [super_admin, admin, manager, employee]
-    service: ServiceBridge
-    method: _handle_list_meetings
-    description: "List all meetings"
-    destructive: false
-    examples:
-      - list all meetings
-      - show meetings
-      - upcoming meetings
-
-  GET_MEETING:
-    allowed_roles: [super_admin, admin, manager, employee]
-    service: ServiceBridge
-    method: _handle_get_meeting
-    description: "Get meeting details"
-    destructive: false
-    examples:
-      - show meeting
-      - get meeting
-      - meeting details
-
-  ORG_PERFORMANCE_SUMMARY:
-    allowed_roles: [super_admin, admin]
-    service: ServiceBridge
-    method: _handle_org_performance_summary
-    description: "Organization performance summary"
-    destructive: false
-    examples:
-      - organization performance
-      - org performance summary
-      - show performance
-
-  SHOW_ORG_DASHBOARD:
-    allowed_roles: [super_admin, admin]
-    service: ServiceBridge
-    method: _handle_show_org_dashboard
-    description: "Show organization dashboard"
-    destructive: false
-    examples:
-      - show organization dashboard
-      - org dashboard
-      - company overview
-
-  TEAM_PROGRESS_REPORT:
-    allowed_roles: [super_admin, admin, manager]
-    service: ServiceBridge
-    method: _handle_team_progress_report
-    description: "Team progress report"
-    destructive: false
-    examples:
-      - team progress report
-      - show team progress
-      - team status
+  # REMOVED: AI_ORG_INSIGHTS, DEPARTMENT_STATUS_REPORT, LIST_MEETINGS, GET_MEETING, ORG_PERFORMANCE_SUMMARY, SHOW_ORG_DASHBOARD, TEAM_PROGRESS_REPORT
+  # These features are not yet implemented. Removed to prevent misleading users.
 
   # ── Meta Intents ──
   LIST_MANAGEABLE_TASKS:
@@ -502,156 +418,9 @@ intents:
       - hey
       - good morning
 
-
-  CREATE_MEETING:
-    allowed_roles: [super_admin, admin, head, manager]
-    service: ServiceBridge
-    method: _handle_create_meeting
-    description: "Create a meeting"
-    destructive: false
-    examples:
-      - create meeting
-      - schedule meeting
-
-  UPDATE_MEETING:
-    allowed_roles: [super_admin, admin, head, manager]
-    service: ServiceBridge
-    method: _handle_update_meeting
-    description: "Update a meeting"
-    destructive: false
-    examples:
-      - update meeting
-      - change meeting
-
-  INVITE_USER:
-    allowed_roles: [super_admin, admin, head, manager]
-    service: ServiceBridge
-    method: _handle_invite_user
-    description: "Invite user to a meeting"
-    destructive: false
-    examples:
-      - invite user
-      - invite to meeting
-
-  SHOW_DEPARTMENT_DASHBOARD:
-    allowed_roles: [super_admin, admin, head]
-    service: ServiceBridge
-    method: _handle_show_department_dashboard
-    description: "Show department dashboard"
-    destructive: false
-    examples:
-      - show department dashboard
-      - department dashboard
-
-  SHOW_TEAM_DASHBOARD:
-    allowed_roles: [super_admin, admin, head, manager]
-    service: ServiceBridge
-    method: _handle_show_team_dashboard
-    description: "Show team dashboard"
-    destructive: false
-    examples:
-      - show team dashboard
-      - team dashboard
-
-  REPORT_BLOCKER:
-    allowed_roles: [super_admin, admin, manager, employee, intern]
-    service: ServiceBridge
-    method: _handle_report_blocker
-    description: "Report a blocker on a task"
-    destructive: false
-    examples:
-      - report blocker
-      - i am stuck
-      - task is blocked
-      - i have a blocker
-
-  DELETE_MEETING:
-    allowed_roles: [super_admin, admin, manager]
-    service: ServiceBridge
-    method: _handle_delete_meeting
-    description: "Delete a meeting"
-    destructive: true
-    examples:
-      - delete meeting
-      - cancel meeting
-      - remove meeting
-
-  UPDATE_TASK_PROGRESS:
-    allowed_roles: [super_admin, admin, manager, employee, intern]
-    service: ServiceBridge
-    method: _handle_update_task_progress
-    description: "Update task progress"
-    destructive: false
-    examples:
-      - update task progress
-      - mark progress
-      - set progress
-
-  REQUEST_HELP:
-    allowed_roles: [super_admin, admin, manager, employee, intern]
-    service: ServiceBridge
-    method: _handle_request_help
-    description: "Request help from manager"
-    destructive: false
-    examples:
-      - request help
-      - need assistance
-      - ask for help
-
-  JOIN_MEETING:
-    allowed_roles: [super_admin, admin, manager, employee, intern]
-    service: ServiceBridge
-    method: _handle_join_meeting
-    description: "Join a meeting"
-    destructive: false
-    examples:
-      - join meeting
-      - attend meeting
-      - join the meeting
-
-  SHOW_PERSONAL_DASHBOARD:
-    allowed_roles: [super_admin, admin, manager, employee, intern]
-    service: ServiceBridge
-    method: _handle_show_personal_dashboard
-    description: "Show personal dashboard"
-    destructive: false
-    examples:
-      - show my dashboard
-      - personal dashboard
-      - my dashboard
-
-  SHOW_EXECUTION_GUIDANCE:
-    allowed_roles: [super_admin, admin, manager, employee, intern]
-    service: ServiceBridge
-    method: _handle_show_execution_guidance
-    description: "Show execution guidance"
-    destructive: false
-    examples:
-      - what should i do next
-      - show execution guidance
-      - execution guidance
-
-  SHOW_EXPECTED_OUTPUT:
-    allowed_roles: [super_admin, admin, manager, employee, intern]
-    service: ServiceBridge
-    method: _handle_show_expected_output
-    description: "Show expected output"
-    destructive: false
-    examples:
-      - show expected output
-      - expected output
-      - output criteria
-
-  SHOW_NEXT_STEP:
-    allowed_roles: [super_admin, admin, manager, employee, intern]
-    service: ServiceBridge
-    method: _handle_show_execution_guidance
-    description: "Show next step"
-    destructive: false
-    examples:
-      - show next step
-      - next step
-      - what's next
+  # ── Meeting & Dashboard Intents ──
+  # REMOVED: CREATE_MEETING, UPDATE_MEETING, INVITE_USER, SHOW_NEXT_STEP
+  # These features are not yet implemented. Removed to prevent misleading users.
 
 # ─────────────────────────────────────────────────────────
 # Workflows — Multi-step compound operations

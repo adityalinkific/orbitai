@@ -4,6 +4,7 @@ from app.modules.auth.auth_repository import AuthRepository, RecordExists, GetRe
 from app.modules.auth.auth_model import User, Role
 from app.modules.department.department_model import Department
 from app.core.security import PasswordService, TokenService
+from app.core.response import success, error, conflict
 from app.modules.auth.auth_schema import RegisterRequest, LoginRequest
 import uuid
 
@@ -12,16 +13,15 @@ class AuthService:
 
     @staticmethod
     async def register_user(data: RegisterRequest, db: AsyncSession, current_user):
+        """Register a new user with standard response format."""
         try:
             # If user already exists, return existing user info (idempotent create)
             if await RecordExists._check(db, User.email == data.email):
                 existing_user = await GetRecord._get_one(db, User, User.email == data.email)
                 if existing_user:
-                    return {
-                        "status": "success",
-                        "success": True,
-                        "message": "User already exists. Returning existing user.",
-                        "data": {
+                    return success(
+                        message="User already exists. Returning existing user.",
+                        data={
                             "id": existing_user.id, 
                             "name": existing_user.name, 
                             "emp_id": existing_user.emp_id,
@@ -30,22 +30,22 @@ class AuthService:
                             "department_id": existing_user.department_id,
                             "reporting_manager_id": existing_user.reporting_manager_id
                         }
-                    }
+                    )
 
             role = await GetRecord._get_one(db, Role, Role.id == data.role_id)
 
             if not role:
-                return {"status": "error", "success": False, "message": "Invalid role selected", "data": {}}
+                return error(message="Invalid role selected", data={})
                 
             if role.role.lower() == 'super_admin':
-                return {"status": "error", "success": False, "message": "Cannot assign Super Admin role", "data": {}}
+                return error(message="Cannot assign Super Admin role", data={})
                 
             if data.reporting_manager_id:
                 reporting_manager = await GetRecord._get_one(db, User, User.id == data.reporting_manager_id)
                 if not reporting_manager:
-                    return {"status": "error", "success": False, "message": "Invalid reporting manager selected", "data": {}}
+                    return error(message="Invalid reporting manager selected", data={})
                 if reporting_manager.is_active is False:
-                    return {"status": "error", "success": False, "message": "Reporting manager is blocked", "data": {}}
+                    return error(message="Reporting manager is blocked", data={})
 
             hashed_password = PasswordService._hash(data.password)
 
@@ -61,14 +61,13 @@ class AuthService:
                 joined_date=data.joined_date,
             )
 
-            await AuthRepository._create_user(db, user)
+            repo = AuthRepository()
+            await repo.create(db, user)
             await db.commit()
             await db.refresh(user)
-            return {
-                "status": "success",
-                "success": True,
-                "message": "User registered successfully",
-                "data": {
+            return success(
+                message="User registered successfully",
+                data={
                     "id": user.id, 
                     "name": user.name, 
                     "emp_id": user.emp_id,
@@ -77,7 +76,7 @@ class AuthService:
                     "department_id": user.department_id,
                     "reporting_manager_id": user.reporting_manager_id
                 }
-            }
+            )
 
         except Exception as e:
             try:
@@ -87,8 +86,8 @@ class AuthService:
             err_msg = str(e).lower()
             # Treat duplicate/unique constraint violations as idempotent success
             if "unique" in err_msg or "duplicate" in err_msg or "integrity" in err_msg or "already exists" in err_msg:
-                return {"status": "success", "success": True, "message": "User already registered (idempotent).", "data": {}}
-            return {"status": "error", "success": False, "message": f"Failed to register user: {str(e)}", "data": {}}
+                return success(message="User already registered (idempotent).", data={})
+            return error(message=f"Failed to register user: {str(e)}", data={})
 
     @staticmethod
     async def login_user(data: LoginRequest, db: AsyncSession):

@@ -218,6 +218,12 @@ INTENT_PATTERNS = {
         r"update user (?P<name>[\w\s]+)",
         r"test UPDATE_USER", r"UPDATE_USER"
     ],
+    "DELETE_USER": [
+        r"delete user (?P<name>[\w\s]+)",
+        r"delete (?P<name>[\w\s]+) user",
+        r"remove user (?P<name>[\w\s]+)",
+        r"test DELETE_USER", r"DELETE_USER"
+    ],
     "LIST_DEPARTMENTS": [r"list all departments", r"show all departments", r"list departments", r"show departments", r"test LIST_DEPARTMENTS", r"LIST_DEPARTMENTS"],
     "LIST_PROJECTS": [r"list all projects", r"show projects", r"all projects", r"list projects", r"my projects", r"test LIST_PROJECTS", r"LIST_PROJECTS"],
     "LIST_TASKS": [r"list all tasks", r"show all tasks", r"get all tasks", r"test LIST_TASKS", r"LIST_TASKS"],
@@ -263,6 +269,49 @@ INTENT_PATTERNS = {
     "SHOW_EXPECTED_OUTPUT": [r"show expected output", r"expected output", r"test SHOW_EXPECTED_OUTPUT", r"SHOW_EXPECTED_OUTPUT"],
     "SHOW_NEXT_STEP": [r"show next step", r"next step", r"what's next", r"show my next step", r"test SHOW_NEXT_STEP", r"SHOW_NEXT_STEP"],
 }
+
+
+def _disambiguate_update_intent(message: str, entities: dict) -> tuple:
+    """
+    Disambiguate between UPDATE_USER and UPDATE_ROLE intents.
+    
+    Rules:
+    - UPDATE_USER: modifies a person's details (name, email, department)
+    - UPDATE_ROLE: modifies role permissions only
+    - UPDATE_PERMISSIONS: explicitly about permissions
+    
+    Returns: (intent, entities)
+    """
+    msg_lower = message.lower()
+    
+    # Explicit permission-related keywords → UPDATE_PERMISSIONS or UPDATE_ROLE
+    permission_keywords = ['permission', 'access', 'privilege', 'capability', 'right']
+    if any(keyword in msg_lower for keyword in permission_keywords):
+        if 'role' in msg_lower:
+            return ('UPDATE_PERMISSIONS', entities)
+        return ('UPDATE_ROLE', entities)
+    
+    # Explicit role keywords without permission context → UPDATE_ROLE
+    role_keywords = ['role permissions', 'role access', 'role capability']
+    if any(keyword in msg_lower for keyword in role_keywords):
+        return ('UPDATE_PERMISSIONS', entities)
+    
+    # User-specific keywords → UPDATE_USER
+    user_keywords = ['user', 'employee', 'member', 'staff', 'person']
+    if any(keyword in msg_lower for keyword in user_keywords):
+        return ('UPDATE_USER', entities)
+    
+    # Check entities for clues
+    if entities.get('role') and not entities.get('name') and not entities.get('email'):
+        # Only role entity provided, no user details → UPDATE_ROLE
+        return ('UPDATE_ROLE', entities)
+    
+    if entities.get('name') or entities.get('email') or entities.get('username'):
+        # User details provided → UPDATE_USER
+        return ('UPDATE_USER', entities)
+    
+    # Default fallback based on pattern matching
+    return ('UPDATE_USER', entities)
 
 
 def _normalize_input(user_message: str) -> str:
@@ -320,10 +369,33 @@ async def parse_command(
         for pattern in patterns:
             match = re.search(pattern, clean_msg, re.IGNORECASE)
             if match:
+                entities = match.groupdict()
+                
+                # Apply intent disambiguation for UPDATE intents
+                if intent in ["UPDATE_USER", "UPDATE_ROLE"]:
+                    disambiguated_intent, entities = _disambiguate_update_intent(user_message, entities)
+                    intent = disambiguated_intent
+                
+                # Validate entities using entity_validator
+                try:
+                    from .entity_validator import entity_validator
+                    is_valid, validated_entities, error = entity_validator.validate_and_extract_entities(
+                        entities, normalize_intent(intent)
+                    )
+                    if not is_valid:
+                        log.warning(f"Entity validation failed for {intent}: {error}")
+                        # Still return the intent but with validation error in entities
+                        entities["_validation_error"] = error
+                    else:
+                        entities = validated_entities
+                except ImportError:
+                    # Fallback if validator not available
+                    log.warning("Entity validator not available, skipping validation")
+                
                 log.info(f"Detected Intent: {intent} (regex match)")
                 return {
                     "intent": normalize_intent(intent),
-                    "entities": match.groupdict(),
+                    "entities": entities,
                     "confidence": 1.0
                 }
 

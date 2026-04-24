@@ -395,10 +395,10 @@ class ScopeGuard:
     ) -> Dict[str, Any]:
         """
         EMPLOYEE: Self-scope validation.
-        Can UPDATE_TASK_PROGRESS only if task.assignee_id == current_user.id
-        Can only view their own tasks.
+        Can UPDATE_TASK_PROGRESS only if user is assigned to the task via TaskAssignment
+        Can only view their own assigned tasks.
         """
-        from app.modules.task.task_model import Task
+        from app.modules.task.task_model import Task, TaskAssignment
 
         # Validate task operations (employee can only operate on assigned tasks)
         if "task_id" in entities:
@@ -407,26 +407,19 @@ class ScopeGuard:
             if isinstance(task_id, str) and task_id.isdigit():
                 task_id = int(task_id)
             
-            task_stmt = select(Task).where(Task.id == task_id)
-            task_res = await db.execute(task_stmt)
-            task = task_res.scalar_one_or_none()
+            # Check if user is assigned to this task via TaskAssignment
+            assign_stmt = select(TaskAssignment).where(
+                TaskAssignment.task_id == task_id,
+                TaskAssignment.user_id == user_id
+            )
+            assign_res = await db.execute(assign_stmt)
+            assignment = assign_res.scalar_one_or_none()
 
-            if task:
-                # For update operations, check if user is assigned
-                if intent in ["UPDATE_TASK_PROGRESS", "UPDATE_TASK", "CLOSE_TASK"]:
-                    if task.assignee_id != user_id:
-                        return {
-                            "allowed": False,
-                            "reason": f"Cannot modify task. You are not assigned to this task. Task assignee_id: {task.assignee_id}"
-                        }
-
-                # For view operations, check if user is assigned or it's their own task
-                if intent in ["GET_TASK", "LIST_TASKS"]:
-                    if task.assignee_id != user_id:
-                        return {
-                            "allowed": False,
-                            "reason": f"Cannot view task. You are not assigned to this task."
-                        }
+            if not assignment:
+                return {
+                    "allowed": False,
+                    "reason": f"Cannot access task. You are not assigned to this task."
+                }
 
         # Employee cannot access project CRUD
         if intent in ["CREATE_PROJECT", "UPDATE_PROJECT", "DELETE_PROJECT"]:
@@ -463,7 +456,7 @@ class ScopeGuard:
         Same as Employee but read-limited.
         assigned_resources_only
         """
-        from app.modules.task.task_model import Task
+        from app.modules.task.task_model import Task, TaskAssignment
 
         # Validate task operations (intern can only operate on assigned tasks)
         if "task_id" in entities:
@@ -471,26 +464,20 @@ class ScopeGuard:
             task_id = entities["task_id"]
             if isinstance(task_id, str) and task_id.isdigit():
                 task_id = int(task_id)
-            task_stmt = select(Task).where(Task.id == task_id)
-            task_res = await db.execute(task_stmt)
-            task = task_res.scalar_one_or_none()
+            
+            # Check if user is assigned to this task via TaskAssignment
+            assign_stmt = select(TaskAssignment).where(
+                TaskAssignment.task_id == task_id,
+                TaskAssignment.user_id == user_id
+            )
+            assign_res = await db.execute(assign_stmt)
+            assignment = assign_res.scalar_one_or_none()
 
-            if task:
-                # Intern can only update their own assigned tasks
-                if intent in ["UPDATE_TASK_PROGRESS"]:
-                    if task.assignee_id != user_id:
-                        return {
-                            "allowed": False,
-                            "reason": f"Cannot modify task. You are not assigned to this task. Task assignee_id: {task.assignee_id}"
-                        }
-
-                # Intern can only view their own tasks
-                if intent in ["GET_TASK", "LIST_TASKS"]:
-                    if task.assignee_id != user_id:
-                        return {
-                            "allowed": False,
-                            "reason": f"Cannot view task. You are not assigned to this task."
-                        }
+            if not assignment:
+                return {
+                    "allowed": False,
+                    "reason": f"Cannot access task. You are not assigned to this task."
+                }
 
         # Intern cannot create tasks
         if intent == "CREATE_TASK":

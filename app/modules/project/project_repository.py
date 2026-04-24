@@ -1,31 +1,25 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, exists
 from app.modules.project.project_model import Project
-from app.modules.project.project_schema import ProjectUpdateSchema
+from app.core.base_repository import BaseRepository
 
 
-class ProjectRepository:
+class ProjectRepository(BaseRepository):
+    """Project repository with standard CRUD operations."""
+    
+    def __init__(self):
+        super().__init__(Project)
     
     @staticmethod
-    async def _create(db: AsyncSession, project: Project):
-        db.add(project)
-        return project
-    
-    
-    @staticmethod
-    async def _update(db: AsyncSession, update_data: dict, project: Project):
-        for field, value in update_data.items():
-            setattr(project, field, value)
-        
-        return project
-    
-    @staticmethod
-    async def _delete(db: AsyncSession, project: Project):
-        await db.delete(project)
-        return 
-    
-    
-class DetailsExist():
+    async def get_by_name(db: AsyncSession, name: str):
+        """Get project by name."""
+        stmt = select(Project).where(Project.name == name)
+        result = await db.execute(stmt)
+        return result.scalars().first()
+
+
+# Legacy compatibility - keep for gradual migration
+class DetailsExist:
 
     @staticmethod
     async def _exists(db: AsyncSession, field, value) -> bool:
@@ -33,24 +27,18 @@ class DetailsExist():
         result = await db.execute(stmt)
         return result.scalar()
     
-    
 class GetProjects:
     
     @staticmethod
     async def _get_by_id(db: AsyncSession, project_id: int):
-        stmt = select(Project).where(Project.id == project_id)
-        result = await db.execute(stmt)
-        return result.scalars().first()
+        repo = ProjectRepository()
+        return await repo.get_by_id(db, project_id)
     
     @staticmethod
     async def _get_all(db: AsyncSession):
-        stmt = select(Project).order_by(Project.created_at.desc())
-        result = await db.execute(stmt)
-        all_projects = result.scalars().all()
-        return all_projects
+        repo = ProjectRepository()
+        return await repo.get_all(db, eager_load=None)
 
     @staticmethod
     async def _get_by_name(db: AsyncSession, name: str):
-        stmt = select(Project).where(Project.name == name)
-        result = await db.execute(stmt)
-        return result.scalars().first()
+        return await ProjectRepository.get_by_name(db, name)

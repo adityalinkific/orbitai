@@ -118,8 +118,12 @@ class ChatAuditLog(Base):
         index=True, nullable=False,
     )
     role = Column(String(50), nullable=False)
+    department_id = Column(Integer, nullable=True, index=True)
     intent = Column(String(100), nullable=False)
     action_taken = Column(Text, nullable=True)
+    entities_used = Column(Text, nullable=True)  # JSON string of entities
+    before_state = Column(Text, nullable=True)  # JSON string of before state
+    after_state = Column(Text, nullable=True)  # JSON string of after state
     result = Column(Enum(AuditResult), nullable=False)
     error_message = Column(Text, nullable=True)
     timestamp = Column(

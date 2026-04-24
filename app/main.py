@@ -1,10 +1,15 @@
 from fastapi import FastAPI, HTTPException, Request
+from datetime import datetime
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from app.routers import api_router
 from app.modules.orbit_assistant.router import router as assistant_router
 import app.models
 from app.core.middleware.error_handlers import http_exception_handler, response_validation_exception_handler, global_exception_handler, custom_request_validation_exception_handler
 from app.core.middleware.cors_middleware import register_cors
+from app.core.middleware.security_headers import register_security_headers
+from app.core.middleware.rate_limit import limiter, custom_rate_limit_exceeded_handler
 from app.core.config import settings
 from app.modules.orbit_assistant.engine.logger import get_logger
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -26,7 +31,12 @@ app = FastAPI(
         },
     )
 
+# Apply rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
+
 register_cors(app)
+register_security_headers(app)
 
 # Global Error Handling Middleware
 @app.middleware("http")
@@ -65,3 +75,39 @@ def root():
         "status" : "success",
         "message" : "Orbit API Running Successfully!"
     }
+
+
+@app.get("/health/live")
+async def liveness_probe():
+    """Liveness probe - checks if the application is running."""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@app.get("/health/ready")
+async def readiness_probe():
+    """Readiness probe - checks if the application is ready to serve traffic."""
+    try:
+        # Check database connection
+        engine = create_async_engine(settings.DATABASE_URL)
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        await engine.dispose()
+        
+        return {
+            "status": "ready",
+            "timestamp": datetime.utcnow().isoformat(),
+            "checks": {
+                "database": "connected"
+            }
+        }
+    except Exception as e:
+        return {
+            "status": "not_ready",
+            "timestamp": datetime.utcnow().isoformat(),
+            "checks": {
+                "database": f"disconnected: {str(e)}"
+            }
+        }

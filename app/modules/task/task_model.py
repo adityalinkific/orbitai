@@ -36,12 +36,14 @@ class Task(Base):
     task_type = Column(Enum(TaskTypeEnum), default= TaskTypeEnum.daily, nullable=False)
     priority = Column(Enum(PriorityEnum), default= PriorityEnum.high, nullable=False)
     due_date = Column(Date, index= True, nullable=True)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+    manager_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), index= True, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     assignments = relationship("TaskAssignment", back_populates="task", cascade="all, delete-orphan")
+    manager = relationship("User", foreign_keys=[manager_id])
 
 
 
@@ -49,8 +51,8 @@ class TaskAssignment(Base):
     __tablename__ = "task_assignments"
 
     id = Column(Integer, primary_key=True, index= True, autoincrement=True)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     assigned_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     assigned_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     due_date = Column(Date, index= True, nullable=True)    
@@ -60,7 +62,8 @@ class TaskAssignment(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     task = relationship("Task", back_populates="assignments")
-    assigned_user = relationship("User", foreign_keys=[user_id])
+    assignee = relationship("User", foreign_keys=[user_id], backref="assigned_tasks")
+    assigner = relationship("User", foreign_keys=[assigned_by], backref="assigned_by_me")
 
     
     

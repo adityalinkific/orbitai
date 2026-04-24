@@ -30,8 +30,30 @@ class RBACValidator:
         """
         Check if the user's role is permitted to execute intent.
         Uses capability_resolver for centralized authorization.
+        Includes privilege escalation prevention.
         """
 
+        # Security: Normalize role to uppercase for consistency
+        role_normalized = role.upper() if role else ""
+        
+        # Security: Block attempts to escalate privileges
+        privilege_escalation_intents = [
+            "UPDATE_ROLE", "UPDATE_PERMISSIONS", "ASSIGN_ROLE",
+            "UPDATE_USER", "DELETE_USER"
+        ]
+        
+        if intent in privilege_escalation_intents:
+            # Only super_admin and admin can modify roles/permissions
+            if role_normalized not in ["SUPERADMIN", "ADMIN"]:
+                log.warning(
+                    f"Privilege escalation attempt blocked: role={role_normalized} intent={intent}"
+                )
+                return {
+                    "allowed": False,
+                    "action": intent,
+                    "reason": "Only administrators can modify roles, permissions, or user accounts."
+                }
+        
         # Use capability_resolver for validation
         validation_result = capability_resolver.validate_intent(intent, role)
 

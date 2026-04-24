@@ -1,0 +1,632 @@
+# Production Configuration for Orbit AI
+# This configuration is optimized for production deployment
+
+context_history_size: 10
+
+intents:
+  CREATE_TASK:
+    allowed_roles: [super_admin, admin, manager, head]
+    service: TaskService
+    method: create_task
+    description: "Create a new task"
+    destructive: false
+    examples:
+      - "Create a task for project X"
+      - "Add task review documentation"
+    required_entities: [name, department_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [LIST_TASKS, CREATE_PROJECT, LIST_PROJECTS]
+      admin: [LIST_TASKS, CREATE_PROJECT, LIST_PROJECTS]
+      manager: [LIST_TASKS, LIST_MY_TASKS, CLOSE_TASK]
+      head: [LIST_TASKS, LIST_MY_TASKS, CLOSE_TASK]
+      employee: [LIST_MY_TASKS]
+      intern: [LIST_MY_TASKS]
+
+  LIST_TASKS:
+    allowed_roles: [super_admin, admin, manager, head]
+    service: TaskService
+    method: get_all_tasks
+    description: "List all tasks"
+    destructive: false
+    examples:
+      - "Show me all tasks"
+      - "List tasks"
+    required_entities: []
+    workflows: []
+    suggestion_map:
+      super_admin: [CREATE_TASK, UPDATE_TASK, DELETE_TASK]
+      admin: [CREATE_TASK, UPDATE_TASK, DELETE_TASK]
+      manager: [CREATE_TASK, UPDATE_TASK]
+      head: [CREATE_TASK, UPDATE_TASK]
+      employee: [LIST_MY_TASKS]
+      intern: [LIST_MY_TASKS]
+
+  GET_TASK:
+    allowed_roles: [super_admin, admin, manager, head, employee, intern]
+    service: TaskService
+    method: get_task_detail
+    description: "Get details of a specific task"
+    destructive: false
+    examples:
+      - "Show me task 123"
+      - "Get task details for task X"
+    required_entities: [task_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [UPDATE_TASK, DELETE_TASK, ASSIGN_TASK]
+      admin: [UPDATE_TASK, DELETE_TASK, ASSIGN_TASK]
+      manager: [UPDATE_TASK, ASSIGN_TASK]
+      head: [UPDATE_TASK]
+      employee: []
+      intern: []
+
+  UPDATE_TASK:
+    allowed_roles: [super_admin, admin, manager, head]
+    service: TaskService
+    method: update_task
+    description: "Update an existing task"
+    destructive: false
+    examples:
+      - "Update task 123 status to completed"
+      - "Change task description"
+    required_entities: [task_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [DELETE_TASK, ASSIGN_TASK]
+      admin: [DELETE_TASK, ASSIGN_TASK]
+      manager: [ASSIGN_TASK, CLOSE_TASK]
+      head: [CLOSE_TASK]
+      employee: []
+      intern: []
+
+  DELETE_TASK:
+    allowed_roles: [super_admin, admin, manager]
+    service: TaskService
+    method: delete_task
+    description: "Delete a task"
+    destructive: true
+    examples:
+      - "Delete task 123"
+      - "Remove task X"
+    required_entities: [task_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [CREATE_TASK, LIST_TASKS]
+      admin: [CREATE_TASK, LIST_TASKS]
+      manager: [CREATE_TASK, LIST_TASKS]
+      head: []
+      employee: []
+      intern: []
+
+  ASSIGN_TASK:
+    allowed_roles: [super_admin, admin, manager, head]
+    service: TaskAssignService
+    method: assign_task
+    description: "Assign a task to a user"
+    destructive: false
+    examples:
+      - "Assign task 123 to John"
+      - "Give task X to user Y"
+    required_entities: [task_id, user_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [LIST_TASKS, UPDATE_TASK]
+      admin: [LIST_TASKS, UPDATE_TASK]
+      manager: [LIST_TASKS, UPDATE_TASK]
+      head: [LIST_TASKS]
+      employee: []
+      intern: []
+
+  LIST_MY_TASKS:
+    allowed_roles: [super_admin, admin, manager, head, employee, intern]
+    service: TaskAssignService
+    method: get_my_tasks
+    description: "List tasks assigned to the current user"
+    destructive: false
+    examples:
+      - "Show my tasks"
+      - "What are my tasks?"
+    required_entities: []
+    workflows: []
+    suggestion_map:
+      super_admin: [CREATE_TASK, LIST_TASKS]
+      admin: [CREATE_TASK, LIST_TASKS]
+      manager: [CREATE_TASK, CLOSE_TASK]
+      head: [CLOSE_TASK]
+      employee: [CLOSE_TASK]
+      intern: []
+
+  CREATE_PROJECT:
+    allowed_roles: [super_admin, admin, manager]
+    service: ProjectService
+    method: create_project
+    description: "Create a new project"
+    destructive: false
+    examples:
+      - "Create a new project called X"
+      - "Start project Y"
+    required_entities: [name, department_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [LIST_PROJECTS, CREATE_TASK]
+      admin: [LIST_PROJECTS, CREATE_TASK]
+      manager: [LIST_PROJECTS, CREATE_TASK]
+      head: []
+      employee: []
+      intern: []
+
+  LIST_PROJECTS:
+    allowed_roles: [super_admin, admin, manager, head]
+    service: ProjectService
+    method: get_all_projects
+    description: "List all projects"
+    destructive: false
+    examples:
+      - "Show all projects"
+      - "List projects"
+    required_entities: []
+    workflows: []
+    suggestion_map:
+      super_admin: [CREATE_PROJECT, UPDATE_PROJECT, DELETE_PROJECT]
+      admin: [CREATE_PROJECT, UPDATE_PROJECT, DELETE_PROJECT]
+      manager: [CREATE_PROJECT, UPDATE_PROJECT]
+      head: [CREATE_PROJECT]
+      employee: []
+      intern: []
+
+  GET_PROJECT:
+    allowed_roles: [super_admin, admin, manager, head, employee, intern]
+    service: ProjectService
+    method: get_project_by_id
+    description: "Get details of a specific project"
+    destructive: false
+    examples:
+      - "Show project 123"
+      - "Get project details"
+    required_entities: [project_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [UPDATE_PROJECT, DELETE_PROJECT]
+      admin: [UPDATE_PROJECT, DELETE_PROJECT]
+      manager: [UPDATE_PROJECT]
+      head: []
+      employee: []
+      intern: []
+
+  UPDATE_PROJECT:
+    allowed_roles: [super_admin, admin, manager]
+    service: ProjectService
+    method: update_project
+    description: "Update an existing project"
+    destructive: false
+    examples:
+      - "Update project 123"
+      - "Change project status"
+    required_entities: [project_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [DELETE_PROJECT, START_PROJECT]
+      admin: [DELETE_PROJECT, START_PROJECT]
+      manager: [START_PROJECT]
+      head: []
+      employee: []
+      intern: []
+
+  DELETE_PROJECT:
+    allowed_roles: [super_admin, admin]
+    service: ProjectService
+    method: delete_project
+    description: "Delete a project"
+    destructive: true
+    examples:
+      - "Delete project 123"
+      - "Remove project X"
+    required_entities: [project_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [CREATE_PROJECT, LIST_PROJECTS]
+      admin: [CREATE_PROJECT, LIST_PROJECTS]
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  START_PROJECT:
+    allowed_roles: [super_admin, admin, manager]
+    service: ProjectService
+    method: start_project
+    description: "Start a project"
+    destructive: false
+    examples:
+      - "Start project 123"
+      - "Begin project X"
+    required_entities: [project_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [CREATE_TASK, LIST_TASKS]
+      admin: [CREATE_TASK, LIST_TASKS]
+      manager: [CREATE_TASK, LIST_TASKS]
+      head: []
+      employee: []
+      intern: []
+
+  CREATE_DEPARTMENT:
+    allowed_roles: [super_admin, admin]
+    service: DepartmentService
+    method: create_department
+    description: "Create a new department"
+    destructive: false
+    examples:
+      - "Create department Engineering"
+      - "Add new department X"
+    required_entities: [name]
+    workflows: []
+    suggestion_map:
+      super_admin: [LIST_DEPARTMENTS, UPDATE_DEPARTMENT]
+      admin: [LIST_DEPARTMENTS, UPDATE_DEPARTMENT]
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  LIST_DEPARTMENTS:
+    allowed_roles: [super_admin, admin, manager, head, employee, intern]
+    service: DepartmentService
+    method: get_departments
+    description: "List all departments"
+    destructive: false
+    examples:
+      - "Show all departments"
+      - "List departments"
+    required_entities: []
+    workflows: []
+    suggestion_map:
+      super_admin: [CREATE_DEPARTMENT, UPDATE_DEPARTMENT]
+      admin: [CREATE_DEPARTMENT, UPDATE_DEPARTMENT]
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  GET_DEPARTMENT:
+    allowed_roles: [super_admin, admin, manager, head, employee, intern]
+    service: DepartmentService
+    method: get_department
+    description: "Get details of a specific department"
+    destructive: false
+    examples:
+      - "Show department 123"
+      - "Get department details"
+    required_entities: [department_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [UPDATE_DEPARTMENT, DELETE_DEPARTMENT]
+      admin: [UPDATE_DEPARTMENT, DELETE_DEPARTMENT]
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  UPDATE_DEPARTMENT:
+    allowed_roles: [super_admin, admin]
+    service: DepartmentService
+    method: update_department
+    description: "Update an existing department"
+    destructive: false
+    examples:
+      - "Update department 123"
+      - "Change department name"
+    required_entities: [department_id, name]
+    workflows: []
+    suggestion_map:
+      super_admin: [DELETE_DEPARTMENT, LIST_DEPARTMENTS]
+      admin: [DELETE_DEPARTMENT, LIST_DEPARTMENTS]
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  DELETE_DEPARTMENT:
+    allowed_roles: [super_admin]
+    service: DepartmentService
+    method: delete_department
+    description: "Delete a department"
+    destructive: true
+    examples:
+      - "Delete department 123"
+      - "Remove department X"
+    required_entities: [department_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [CREATE_DEPARTMENT, LIST_DEPARTMENTS]
+      admin: []
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  LIST_USERS:
+    allowed_roles: [super_admin, admin, manager, head]
+    service: UserService
+    method: get_users
+    description: "List all users"
+    destructive: false
+    examples:
+      - "Show all users"
+      - "List users"
+    required_entities: []
+    workflows: []
+    suggestion_map:
+      super_admin: [ADD_MEMBER, UPDATE_USER, DELETE_USER]
+      admin: [ADD_MEMBER, UPDATE_USER, DELETE_USER]
+      manager: [ADD_MEMBER, UPDATE_USER]
+      head: []
+      employee: []
+      intern: []
+
+  UPDATE_USER:
+    allowed_roles: [super_admin, admin]
+    service: UserService
+    method: _update_user
+    description: "Update user details"
+    destructive: false
+    examples:
+      - "Update user 123"
+      - "Change user role"
+    required_entities: [user_id]
+    workflows: []
+    suggestion_map:
+      super_admin: [DELETE_USER, LIST_USERS]
+      admin: [DELETE_USER, LIST_USERS]
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  DELETE_USER:
+    allowed_roles: [super_admin]
+    service: AuthService
+    method: delete_user
+    description: "Delete a user"
+    destructive: true
+    examples:
+      - "Delete user 123"
+      - "Remove user X"
+    required_entities: [name]
+    workflows: []
+    suggestion_map:
+      super_admin: [ADD_MEMBER, LIST_USERS]
+      admin: []
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  UPDATE_EMAIL:
+    allowed_roles: [super_admin, admin]
+    service: UserServices
+    method: update_user_email
+    description: "Update user email"
+    destructive: false
+    examples:
+      - "Update email for user John"
+      - "Change email to X"
+    required_entities: [username, email]
+    workflows: []
+    suggestion_map:
+      super_admin: [UPDATE_USER, LIST_USERS]
+      admin: [UPDATE_USER, LIST_USERS]
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  ADD_MEMBER:
+    allowed_roles: [super_admin, admin, manager]
+    service: AuthService
+    method: register_user
+    description: "Add a new member to the organization"
+    destructive: false
+    examples:
+      - "Add member John to Engineering"
+      - "Hire new employee X"
+    required_entities: [name, department_id, role_id, password]
+    workflows: []
+    suggestion_map:
+      super_admin: [LIST_USERS, UPDATE_USER]
+      admin: [LIST_USERS, UPDATE_USER]
+      manager: [LIST_USERS]
+      head: []
+      employee: []
+      intern: []
+
+  REGISTER_USER:
+    allowed_roles: [super_admin, admin, manager]
+    service: AuthService
+    method: register_user
+    description: "Register a new user"
+    destructive: false
+    examples:
+      - "Register user John"
+      - "Create account for X"
+    required_entities: [name, department_id, role_id, password]
+    workflows: []
+    suggestion_map:
+      super_admin: [LIST_USERS, UPDATE_USER]
+      admin: [LIST_USERS, UPDATE_USER]
+      manager: [LIST_USERS]
+      head: []
+      employee: []
+      intern: []
+
+  LIST_ROLES:
+    allowed_roles: [super_admin, admin, manager, head, employee, intern]
+    service: RoleService
+    method: get_roles
+    description: "List all roles"
+    destructive: false
+    examples:
+      - "Show all roles"
+      - "List roles"
+    required_entities: []
+    workflows: []
+    suggestion_map:
+      super_admin: [UPDATE_ROLE, UPDATE_PERMISSIONS]
+      admin: [UPDATE_ROLE, UPDATE_PERMISSIONS]
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  UPDATE_ROLE:
+    allowed_roles: [super_admin, admin]
+    service: RoleService
+    method: _update
+    description: "Update role details"
+    destructive: false
+    examples:
+      - "Update role 123"
+      - "Change role description"
+    required_entities: [role_id, description]
+    workflows: []
+    suggestion_map:
+      super_admin: [LIST_ROLES, UPDATE_PERMISSIONS]
+      admin: [LIST_ROLES, UPDATE_PERMISSIONS]
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  UPDATE_PERMISSIONS:
+    allowed_roles: [super_admin]
+    service: RoleService
+    method: _update
+    description: "Update role permissions"
+    destructive: false
+    examples:
+      - "Update permissions for role X"
+      - "Change role capabilities"
+    required_entities: [role_id, description]
+    workflows: []
+    suggestion_map:
+      super_admin: [LIST_ROLES, UPDATE_ROLE]
+      admin: []
+      manager: []
+      head: []
+      employee: []
+      intern: []
+
+  GREETING:
+    allowed_roles: [super_admin, admin, manager, head, employee, intern]
+    service: None
+    method: GREETING
+    description: "Greeting message"
+    destructive: false
+    examples:
+      - "Hello"
+      - "Hi"
+    required_entities: []
+    workflows: []
+    suggestion_map:
+      super_admin: [LIST_TASKS, LIST_PROJECTS]
+      admin: [LIST_TASKS, LIST_PROJECTS]
+      manager: [LIST_MY_TASKS, LIST_PROJECTS]
+      head: [LIST_MY_TASKS]
+      employee: [LIST_MY_TASKS]
+      intern: [LIST_MY_TASKS]
+
+  LIST_MANAGEABLE_TASKS:
+    allowed_roles: [super_admin, admin, manager, head]
+    service: None
+    method: LIST_MANAGEABLE_TASKS
+    description: "List tasks that can be managed"
+    destructive: false
+    examples:
+      - "Show manageable tasks"
+      - "What tasks can I manage?"
+    required_entities: []
+    workflows: []
+    suggestion_map:
+      super_admin: [CREATE_TASK, UPDATE_TASK]
+      admin: [CREATE_TASK, UPDATE_TASK]
+      manager: [CREATE_TASK, UPDATE_TASK]
+      head: [UPDATE_TASK]
+      employee: []
+      intern: []
+
+  CLOSE_TASK:
+    allowed_roles: [super_admin, admin, manager, head, employee, intern]
+    service: close_task_workflow
+    method: close_task
+    description: "Close a task"
+    destructive: false
+    examples:
+      - "Close task X"
+      - "Mark task as completed"
+    required_entities: [name]
+    workflows: []
+    suggestion_map:
+      super_admin: [LIST_TASKS, CREATE_TASK]
+      admin: [LIST_TASKS, CREATE_TASK]
+      manager: [LIST_TASKS, CREATE_TASK]
+      head: [LIST_MY_TASKS]
+      employee: [LIST_MY_TASKS]
+      intern: [LIST_MY_TASKS]
+
+  LIST_MY_INFO:
+    allowed_roles: [super_admin, admin, manager, head, employee, intern]
+    service: None
+    method: LIST_MY_INFO
+    description: "List current user information"
+    destructive: false
+    examples:
+      - "Show my info"
+      - "Who am I?"
+    required_entities: []
+    workflows: []
+    suggestion_map:
+      super_admin: [UPDATE_EMAIL, LIST_USERS]
+      admin: [UPDATE_EMAIL, LIST_USERS]
+      manager: [LIST_MY_TASKS]
+      head: [LIST_MY_TASKS]
+      employee: [LIST_MY_TASKS]
+      intern: [LIST_MY_TASKS]
+
+  HIRE_CANDIDATE:
+    allowed_roles: [super_admin, admin, manager]
+    service: workflow_orchestrator
+    method: execute_workflow
+    description: "Hire a new candidate and onboard them"
+    destructive: false
+    examples:
+      - "Hire candidate John"
+      - "Onboard new employee X"
+    required_entities: [name, department_id, role_id, password]
+    workflows: [hire_candidate_workflow]
+    suggestion_map:
+      super_admin: [LIST_USERS, ADD_MEMBER]
+      admin: [LIST_USERS, ADD_MEMBER]
+      manager: [LIST_USERS]
+      head: []
+      employee: []
+      intern: []
+
+  START_PROJECT_WORKFLOW:
+    allowed_roles: [super_admin, admin, manager]
+    service: workflow_orchestrator
+    method: execute_workflow
+    description: "Start a new project with initial tasks"
+    destructive: false
+    examples:
+      - "Start project X"
+      - "Begin new project Y"
+    required_entities: [name, department_id]
+    workflows: [start_project_workflow]
+    suggestion_map:
+      super_admin: [LIST_PROJECTS, CREATE_TASK]
+      admin: [LIST_PROJECTS, CREATE_TASK]
+      manager: [LIST_PROJECTS, CREATE_TASK]
+      head: []
+      employee: []
+      intern: []

@@ -6,11 +6,15 @@ class ProjectRequestSchema(BaseModel):
     name: str = Field(..., min_length=3)
     description: str | None = Field(None, max_length=255)
     department_id: int
+    manager_id: int | None = None
+    created_by: int | None = None
     
 class ProjectUpdateSchema(BaseModel):
     name: str | None = Field(None, min_length=3)
     description: str | None = Field(None, max_length=255)
     department_id: int | None = None
+    manager_id: int | None = None
+    created_by: int | None = None
     
 
 class ProjectResponseSchema(BaseModel):

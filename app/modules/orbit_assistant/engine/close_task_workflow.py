@@ -12,9 +12,9 @@ async def close_task(db: AsyncSession, task_name: str):
         # ---- SAFE VALIDATION ----
         if not task_name:
             return {
-                "status": "success",
-                "success": True,
-                "message": "Task name not provided - considered closed",
+                "status": "error",
+                "success": False,
+                "message": "Task name is required to close a task",
                 "data": {}
             }
 

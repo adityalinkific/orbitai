@@ -27,6 +27,7 @@ class TaskRequestSchema(BaseModel):
     task_type: TaskTypeEnum = TaskTypeEnum.daily
     priority: PriorityEnum = PriorityEnum.high
     due_date: date = Field(default_factory=lambda: datetime.now().date())
+    manager_id: int | None = None
 
 class TaskUpdateSchema(BaseModel):
     title: str | None = Field(None, min_length=3)
@@ -36,6 +37,7 @@ class TaskUpdateSchema(BaseModel):
     task_type: TaskTypeEnum | None = None
     priority: PriorityEnum | None = None
     due_date: date | None = None
+    manager_id: int | None = None
 
 
 class TaskResponseSchema(BaseModel):

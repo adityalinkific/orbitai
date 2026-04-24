@@ -1,20 +1,19 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-
 from app.modules.auth.auth_model import User
+from app.core.base_repository import BaseRepository
 
-class UserRepository:
-    @staticmethod
-    async def _update(update_data: dict, instance: any):
-        for field, value in update_data.items():
-            setattr(instance, field, value)
-        
-        return instance
+
+class UserRepository(BaseRepository):
+    """User repository with standard CRUD operations."""
     
-class GetDetail:
+    def __init__(self):
+        super().__init__(User)
+    
     @staticmethod
-    async def _all_data(db):
+    async def get_all_with_relations(db: AsyncSession):
+        """Get all users with role and department relations."""
         stmt = (select(User)
             .order_by(User.id.desc())
             .options(
@@ -25,6 +24,14 @@ class GetDetail:
         result = await db.execute(stmt)
         users = result.scalars().all()
         return users
+
+
+# Legacy compatibility - keep for gradual migration
+class GetDetail:
+    @staticmethod
+    async def _all_data(db):
+        repo = UserRepository()
+        return await repo.get_all_with_relations(db)
     
     @staticmethod
     async def _get_one(db: AsyncSession, model, *conditions):

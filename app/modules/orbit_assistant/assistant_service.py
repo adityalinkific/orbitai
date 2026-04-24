@@ -10,6 +10,7 @@ from app.modules.orbit_assistant.engine.capability_resolver import capability_re
 from app.modules.orbit_assistant.engine.scope_guard import scope_guard
 from app.modules.orbit_assistant.engine.executor import executor
 from app.modules.orbit_assistant.engine.response_builder import response_builder
+from app.core.security.input_sanitizer import input_sanitizer
 from app.modules.orbit_assistant.engine.error_handler import error_handler
 from app.modules.orbit_assistant.engine.logger import get_logger
 from app.modules.orbit_assistant.engine.assistant_logger import log_assistant_event
@@ -54,6 +55,10 @@ class AssistantService:
                     bot_reply=f"🚫 SECURITY ALERT: {security_check['reason']}",
                     intent="SECURITY_BLOCKED",
                 )
+            
+            # STEP 0.5 — INPUT SANITIZATION: Prevent XSS and injection
+            sanitized_message = input_sanitizer.sanitize_string(request.message)
+            request.message = sanitized_message
             
             # STEP 1 — CAPTURE CRITICAL DETAILS BEFORE ANY COMMIT
             from app.modules.auth.auth_model import User, Role

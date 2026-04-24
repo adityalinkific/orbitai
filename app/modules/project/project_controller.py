@@ -23,18 +23,9 @@ class ProjectController:
         
     @staticmethod
     async def get_all_project_detail(db: AsyncSession):
-        projects = await ProjectService.get_all_projects(db)
-        data = [
-            {
-                'id': project.id,
-                'name': project.name,
-                'description': project.description,
-                'department_id': project.department_id,
-                'created_at': project.created_at,
-                'updated_at': project.updated_at
-            } for project in projects
-        ]
-        return await Response._success_response("Project details fetched successfully", data)
+        response = await ProjectService.get_all_projects(db)
+        projects = response.get("data", [])
+        return await Response._success_response("Project details fetched successfully", projects)
         
     @staticmethod
     async def get_project_detail(db: AsyncSession, project_id: int, current_user):

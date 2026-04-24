@@ -1,27 +1,18 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import exists, select
+from app.modules.auth.auth_model import Role
+from app.core.base_repository import BaseRepository
 
-class RoleRepository:
 
-    @staticmethod
-    async def _create(db: AsyncSession, data):
-        db.add(data)
-        return data
+class RoleRepository(BaseRepository):
+    """Role repository with standard CRUD operations."""
     
-    
-    @staticmethod
-    async def _update(update_data: dict, instance: any):
-        for field, value in update_data.items():
-            setattr(instance, field, value)
-        
-        return instance
-    
-    @staticmethod
-    async def _delete(db: AsyncSession, instance):
-        return await db.delete(instance)
-    
+    def __init__(self):
+        super().__init__(Role)
 
-class RecordExists():
+
+# Legacy compatibility - keep for gradual migration
+class RecordExists:
 
     @staticmethod
     async def _check(db: AsyncSession, *conditions) -> bool:

@@ -6,6 +6,7 @@ Dispatches intents to appropriate service handlers based on config.yaml.
 from typing import Dict, Any, Optional
 import yaml
 import os
+from fastapi import HTTPException
 from .logger import get_logger
 
 log = get_logger("executor")
@@ -101,11 +102,115 @@ class Executor:
             # Meta intents that don't require full implementation
             "LIST_MY_TASKS": self._handle_list_my_tasks,
             "CLOSE_TASK": self._handle_close_task,
+            
+            # User Management
+            "DELETE_USER": self._handle_delete_user,
+            "UPDATE_EMAIL": self._handle_update_email,
         }
     
     async def execute(self, intent: str, entities: Dict[str, Any], db, user, session_id: str = None) -> Dict[str, Any]:
-        """Execute an intent by routing to the appropriate service."""
+        """Execute an intent by routing to the appropriate service with comprehensive safety checks and audit logging."""
         log.info(f"Executing intent: {intent}")
+        
+        # Capture before state for audit
+        before_state = self._capture_before_state(intent, entities, db, user)
+        
+        # GLOBAL SAFETY MIDDLEWARE - Zero-tolerance safety checks
+        try:
+            from app.core.safety_middleware import safety_middleware
+            safety_result = await safety_middleware.validate_execution(intent, entities, db, user, session_id)
+            
+            if not safety_result["allowed"]:
+                log.warning(f"Safety check failed for {intent}: {safety_result['reason']}")
+                # Log safety failure
+                await self._log_execution(
+                    db, session_id, user, intent, entities, before_state, None,
+                    "denied", safety_result["reason"]
+                )
+                
+                # Return clarification request if needed
+                if safety_result.get("requires_clarification"):
+                    return self._normalize_response({
+                        "success": False,
+                        "message": safety_result["clarification"],
+                        "requires_clarification": True
+                    })
+                
+                return self._normalize_response({
+                    "success": False,
+                    "message": safety_result["reason"]
+                })
+        except Exception as e:
+            log.error(f"Safety middleware error for {intent}: {str(e)}")
+            # Log safety error
+            await self._log_execution(
+                db, session_id, user, intent, entities, before_state, None,
+                "error", f"Safety check failed: {str(e)}"
+            )
+            return self._normalize_response({
+                "success": False,
+                "message": f"Safety check failed: {str(e)}"
+            })
+        
+        # LEGACY VALIDATION - Check required entities before execution (kept for backward compatibility)
+        try:
+            from app.core.execution_validator import ExecutionValidator
+            await ExecutionValidator.validate_before_execution(intent, entities, db, user)
+        except HTTPException as e:
+            log.error(f"Execution validation failed for {intent}: {e.detail}")
+            # Log validation failure
+            await self._log_execution(
+                db, session_id, user, intent, entities, before_state, None,
+                "denied", str(e.detail)
+            )
+            return self._normalize_response({
+                "success": False,
+                "message": e.detail
+            })
+        except Exception as e:
+            log.error(f"Unexpected validation error for {intent}: {str(e)}")
+            # Log validation error
+            await self._log_execution(
+                db, session_id, user, intent, entities, before_state, None,
+                "error", str(e)
+            )
+            return self._normalize_response({
+                "success": False,
+                "message": f"Validation error: {str(e)}"
+            })
+        
+        # CONFIRMATION CHECK FOR DESTRUCTIVE OPERATIONS
+        destructive_intents = ["DELETE_TASK", "DELETE_PROJECT", "DELETE_DEPARTMENT", "DELETE_USER"]
+        if intent in destructive_intents:
+            from .confirmation_manager import requires_confirmation, create_confirmation
+            
+            # Check if confirmation is required (not yet confirmed)
+            if not entities.get("_confirmed"):
+                import uuid
+                request_id = str(uuid.uuid4())
+                entity_name = entities.get("name", entities.get("email", entities.get("id", "unknown")))
+                
+                confirmation_response = await create_confirmation(
+                    request_id=request_id,
+                    intent=intent,
+                    entity=entity_name,
+                    data=entities,
+                    user_id=str(user.id),
+                    timeout_seconds=60,
+                    db=db
+                )
+                
+                # Log confirmation request
+                await self._log_execution(
+                    db, session_id, user, intent, entities, before_state, None,
+                    "confirmation_required", confirmation_response["message"]
+                )
+                
+                return self._normalize_response({
+                    "success": False,
+                    "message": confirmation_response["message"],
+                    "data": {"confirmation_required": True, "request_id": request_id}
+                })
         
         # Check if intent is in config
         intent_config = self.config.get("intents", {}).get(intent)
@@ -121,6 +226,13 @@ class Executor:
                 service_bridge=self, # Pass executor itself as it acts as a bridge
                 config=self.config
             )
+            # Capture after state and log
+            after_state = self._capture_after_state(intent, entities, result, db)
+            await self._log_execution(
+                db, session_id, user, intent, entities, before_state, after_state,
+                "success" if result.get("success", True) else "error",
+                result.get("message")
+            )
             return self._normalize_response(result)
 
         if intent_config:
@@ -130,16 +242,37 @@ class Executor:
             # Route to appropriate service
             if service_name == "ServiceBridge":
                 result = await self._route_to_service_bridge(intent, method_name, entities, db, user, session_id)
+                # Capture after state and log
+                after_state = self._capture_after_state(intent, entities, result, db)
+                await self._log_execution(
+                    db, session_id, user, intent, entities, before_state, after_state,
+                    "success" if result.get("success", True) else "error",
+                    result.get("message")
+                )
                 return self._normalize_response(result)
             elif service_name == "Executor":
                 # Handle locally
                 handler = self._handler_map.get(intent)
                 if handler:
                     result = await handler(entities, db, user, session_id)
+                    # Capture after state and log
+                    after_state = self._capture_after_state(intent, entities, result, db)
+                    await self._log_execution(
+                        db, session_id, user, intent, entities, before_state, after_state,
+                        "success" if result.get("success", True) else "error",
+                        result.get("message")
+                    )
                     return self._normalize_response(result)
             elif service_name:
                 # Route to other services (TaskService, ProjectService, etc.)
                 result = await self._route_to_service(service_name, method_name, entities, db, user, session_id)
+                # Capture after state and log
+                after_state = self._capture_after_state(intent, entities, result, db)
+                await self._log_execution(
+                    db, session_id, user, intent, entities, before_state, after_state,
+                    "success" if result.get("success", True) else "error",
+                    result.get("message")
+                )
                 return self._normalize_response(result)
         
         # Fallback to local handler map
@@ -147,19 +280,95 @@ class Executor:
         if handler:
             try:
                 result = await handler(entities, db, user, session_id)
+                # Capture after state and log
+                after_state = self._capture_after_state(intent, entities, result, db)
+                await self._log_execution(
+                    db, session_id, user, intent, entities, before_state, after_state,
+                    "success" if result.get("success", True) else "error",
+                    result.get("message")
+                )
                 return self._normalize_response(result)
             except Exception as e:
                 log.error(f"Error executing intent {intent}: {str(e)}")
+                # Log execution error
+                await self._log_execution(
+                    db, session_id, user, intent, entities, before_state, None,
+                    "error", str(e)
+                )
                 return self._normalize_response({
                     "success": False,
                     "message": f"Error executing intent: {str(e)}"
                 })
         
         log.warning(f"No handler for intent: {intent}")
+        # Log unsupported intent
+        await self._log_execution(
+            db, session_id, user, intent, entities, before_state, None,
+            "error", f"Intent '{intent}' not supported"
+        )
         return self._normalize_response({
             "success": False,
             "message": f"Intent '{intent}' not supported"
         })
+    
+    def _capture_before_state(self, intent: str, entities: Dict[str, Any], db, user) -> Dict[str, Any]:
+        """Capture state before execution for audit logging."""
+        state = {
+            "intent": intent,
+            "user_id": user.id if hasattr(user, 'id') else None,
+            "role": user.role if hasattr(user, 'role') else None,
+            "department_id": user.department_id if hasattr(user, 'department_id') else None,
+            "entities": entities,
+        }
+        return state
+    
+    def _capture_after_state(self, intent: str, entities: Dict[str, Any], result: Dict[str, Any], db) -> Dict[str, Any]:
+        """Capture state after execution for audit logging."""
+        state = {
+            "intent": intent,
+            "result_success": result.get("success", True),
+            "result_message": result.get("message", ""),
+            "result_data": result.get("data", {}),
+        }
+        return state
+    
+    async def _log_execution(
+        self,
+        db,
+        session_id: str,
+        user,
+        intent: str,
+        entities: Dict[str, Any],
+        before_state: Dict[str, Any],
+        after_state: Dict[str, Any],
+        result: str,
+        error_message: str = None
+    ):
+        """Log execution with full audit trail."""
+        from .audit_logger import audit_logger
+        
+        try:
+            department_id = user.department_id if hasattr(user, 'department_id') else None
+            role = user.role if hasattr(user, 'role') else "unknown"
+            user_id = user.id if hasattr(user, 'id') else 0
+            
+            await audit_logger.log_action(
+                db=db,
+                session_id=session_id,
+                user_id=user_id,
+                role=role,
+                department_id=department_id,
+                intent=intent,
+                action_taken=f"Executed {intent}",
+                entities_used=entities,
+                before_state=before_state,
+                after_state=after_state,
+                result=result,
+                error_message=error_message
+            )
+        except Exception as e:
+            log.error(f"Failed to log execution: {str(e)}")
+            # Never break execution flow due to logging failure
 
     def _normalize_response(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize various service return shapes into the required contract.
@@ -259,6 +468,13 @@ class Executor:
                     "message": f"Service '{service_name}' not found"
                 }
             
+            # Type guard: ensure service class was imported successfully
+            if service is None:
+                return {
+                    "success": False,
+                    "message": f"Failed to import service '{service_name}'"
+                }
+            
             # Map method names to actual service method names (handle underscores)
             method_mapping = {
                 "get_departments": "_get_departments",
@@ -270,6 +486,7 @@ class Executor:
                 "get_task_detail": "get_task_detail",
                 "get_all_projects": "get_all_projects",
                 "get_project_by_id": "get_project_by_id",
+                "start_project": "start_project",
                 # SUPERADMIN intent mappings
                 "create_department": "_create_department",
                 "update_department": "_update_department",
@@ -307,9 +524,22 @@ class Executor:
                 # For UPDATE_DEPARTMENT, also try to resolve from the old name
                 if not dept_id and entities.get('department'):
                     dept_id = await RequestValidator.resolve_department_id(db, entities.get('department'))
-                kwargs['department_id'] = dept_id if dept_id else 1
+                # SAFETY: No implicit default - require explicit value
+                if not dept_id:
+                    return {
+                        "success": False,
+                        "message": "Department ID is required. Please specify the department by ID or name."
+                    }
+                kwargs['department_id'] = dept_id
             if 'role_id' in params:
-                kwargs['role_id'] = entities.get('role_id', 1)  # Default to ID 1 if not provided
+                # SAFETY: No implicit default - require explicit value
+                role_id = entities.get('role_id')
+                if not role_id:
+                    return {
+                        "success": False,
+                        "message": "Role ID is required. Please specify the role by ID."
+                    }
+                kwargs['role_id'] = role_id
             if 'user_id' in params:
                 user_id = entities.get('user_id')
                 if not user_id and entities.get('name'):
@@ -318,7 +548,13 @@ class Executor:
                 if not user_id and entities.get('username'):
                     # If username is provided, try to find the user by username
                     user_id = await RequestValidator.resolve_user_id(db, entities.get('username'))
-                kwargs['user_id'] = user_id if user_id else (user.id if hasattr(user, 'id') else 1)
+                # SAFETY: No implicit default - require explicit value
+                if not user_id:
+                    return {
+                        "success": False,
+                        "message": "User ID is required. Please specify the user by ID, name, or email."
+                    }
+                kwargs['user_id'] = user_id
             if 'current_user' in params:
                 kwargs['current_user'] = user
             # Always pass current_user to AuthService.register_user if it's a static method that doesn't require it
@@ -328,54 +564,139 @@ class Executor:
                     kwargs['current_user'] = user
             if 'data' in params:
                 # Create data object from entities based on service type
-                if service_name == "DepartmentService" and "update" in method_name.lower():
+                if service_name == "ProjectService" and "create" in method_name.lower():
+                    from app.modules.project.project_schema import ProjectRequestSchema
+                    
+                    # Resolve department_id from name if not provided
+                    dept_id = entities.get('department_id')
+                    if not dept_id and entities.get('department'):
+                        dept_id = await RequestValidator.resolve_department_id(db, entities.get('department'))
+                    # SAFETY: No implicit default - require explicit value
+                    if not dept_id:
+                        return {
+                            "success": False,
+                            "message": "Department ID is required to create a project. Please specify the department by ID or name."
+                        }
+                    
+                    # SAFETY: No implicit defaults - require explicit values
+                    project_name = entities.get('name', entities.get('project'))
+                    if not project_name:
+                        return {
+                            "success": False,
+                            "message": "Project name is required. Please specify the project name."
+                        }
+                    
+                    kwargs['data'] = ProjectRequestSchema(
+                        name=project_name,
+                        description=entities.get('description', ''),
+                        department_id=dept_id
+                    )
+                    # ProjectService.create_project also requires current_user
+                    if 'current_user' not in params:
+                        kwargs['current_user'] = user
+                elif service_name == "ProjectService" and "update" in method_name.lower():
+                    from app.modules.project.project_schema import ProjectUpdateSchema
+                    
+                    update_data = {}
+                    if entities.get('name'):
+                        update_data['name'] = entities.get('name')
+                    if entities.get('description'):
+                        update_data['description'] = entities.get('description')
+                    if entities.get('department_id'):
+                        update_data['department_id'] = entities.get('department_id')
+                    
+                    kwargs['data'] = ProjectUpdateSchema(**update_data)
+                elif service_name == "DepartmentService" and "update" in method_name.lower():
                     from app.modules.department.department_schema import UpdateDepartmentRequest
                     
-                    # Make department_head optional - pass None if not provided
+                    # SAFETY: No implicit defaults - require explicit values
+                    update_name = entities.get('new_name', entities.get('name', entities.get('department')))
+                    if not update_name:
+                        return {
+                            "success": False,
+                            "message": "Department name is required for update. Please specify the new department name."
+                        }
+                    
                     department_head_id = entities.get('department_head_id', entities.get('department_head'))
                     if not department_head_id or isinstance(department_head_id, str):
-                        department_head_id = None  # Make optional
+                        department_head_id = None  # Optional field
                     
-                    # Provide valid default values for required fields
-                    update_name = entities.get('new_name', entities.get('name', entities.get('department', 'Updated Department')))
-                    if update_name and len(str(update_name)) < 1:
-                        update_name = 'Updated Department'
                     kwargs['data'] = UpdateDepartmentRequest(
                         name=update_name,
-                        description=entities.get('description', 'Updated department description'),
+                        description=entities.get('description', ''),
                         department_head_id=department_head_id
                     )
                 elif service_name == "DepartmentService":
                     from app.modules.department.department_schema import CreateDepartmentRequest
                     
-                    # Make department_head optional - pass None if not provided
+                    # SAFETY: No implicit defaults - require explicit values
+                    raw_name = entities.get('name', entities.get('department'))
+                    if not raw_name:
+                        return {
+                            "success": False,
+                            "message": "Department name is required. Please specify the department name."
+                        }
+                    
                     department_head_id = entities.get('department_head_id', entities.get('department_head'))
                     if not department_head_id or isinstance(department_head_id, str):
-                        department_head_id = None  # Make optional
-
-                    # Pass empty string if name is not provided to trigger validation errors correctly
-                    raw_name = entities.get('name', entities.get('department'))
-                    name_val = str(raw_name).strip() if raw_name else ''
+                        department_head_id = None  # Optional field
+                    
                     kwargs['data'] = CreateDepartmentRequest(
-                        name=name_val,
-                        description=entities.get('description', 'Test department description'),
+                        name=str(raw_name).strip(),
+                        description=entities.get('description', ''),
                         department_head_id=department_head_id
                     )
                 elif service_name == "RoleService":
                     from app.modules.role.role_schema import RoleUpdateSchema
-                    kwargs['data'] = RoleUpdateSchema(description=entities.get('description', 'Updated role'))
+                    # SAFETY: No implicit defaults - require explicit values
+                    description = entities.get('description')
+                    if not description:
+                        return {
+                            "success": False,
+                            "message": "Role description is required. Please specify the role description."
+                        }
+                    kwargs['data'] = RoleUpdateSchema(description=description)
                 elif service_name == "AuthService":
                     from app.modules.auth.auth_schema import RegisterRequest
                     from datetime import datetime, date
                     
-                    # Make reporting_manager_id and department_id optional
-                    reporting_manager_id = entities.get('reporting_manager_id')
-                    if not reporting_manager_id or isinstance(reporting_manager_id, str):
-                        reporting_manager_id = None  # Make optional
-                    
+                    # Require department_id - no hardcoded default
                     department_id = entities.get('department_id')
                     if not department_id or isinstance(department_id, str):
-                        department_id = 1  # Default to 1 to satisfy NOT NULL constraint
+                        # Fall back to current user's department if available
+                        department_id = getattr(current_user, 'department_id', None)
+                        if not department_id:
+                            return {
+                                "status": "error",
+                                "success": False,
+                                "message": "Department ID is required for user registration",
+                                "data": {}
+                            }
+                    
+                    # Require role_id - no hardcoded default
+                    role_id = entities.get('role_id')
+                    if not role_id or isinstance(role_id, str):
+                        return {
+                            "status": "error",
+                            "success": False,
+                            "message": "Role ID is required for user registration",
+                            "data": {}
+                        }
+                    
+                    # Require password - no weak default
+                    password = entities.get('password')
+                    if not password:
+                        return {
+                            "status": "error",
+                            "success": False,
+                            "message": "Password is required for user registration",
+                            "data": {}
+                        }
+                    
+                    # Optional reporting_manager_id
+                    reporting_manager_id = entities.get('reporting_manager_id')
+                    if not reporting_manager_id or isinstance(reporting_manager_id, str):
+                        reporting_manager_id = None
                     
                     # Generate unique email if not provided
                     user_name = entities.get('name', entities.get('username', 'testuser'))
@@ -385,8 +706,8 @@ class Executor:
                     kwargs['data'] = RegisterRequest(
                         name=user_name,
                         email=unique_email,
-                        password=entities.get('password', 'Password@123'),
-                        role_id=entities.get('role_id', 2),  # Default to ADMIN role
+                        password=password,
+                        role_id=role_id,
                         reporting_manager_id=reporting_manager_id,
                         department_id=department_id,
                         is_active=entities.get('is_active', True),
@@ -405,7 +726,17 @@ class Executor:
                 else:
                     kwargs['data'] = entities
             if 'project_id' in params or 'id' in params:
-                kwargs['project_id'] = entities.get('project_id', entities.get('id'))
+                project_id = entities.get('project_id', entities.get('id'))
+                # For START_PROJECT and other project operations, try to resolve by name
+                if not project_id and entities.get('name'):
+                    from app.core.resolvers.entity_resolver import EntityResolver
+                    project = await EntityResolver.resolve_project(db, entities.get('name'))
+                    if project:
+                        project_id = project.id
+                # Cast to integer if it's a numeric string
+                if project_id and isinstance(project_id, str) and project_id.isdigit():
+                    project_id = int(project_id)
+                kwargs['project_id'] = project_id
             if 'task_id' in params:
                 task_id = entities.get('task_id', entities.get('id'))
                 # Cast to integer if it's a numeric string to prevent type mismatch
@@ -483,11 +814,20 @@ class Executor:
         }
     
     async def _handle_list_my_tasks(self, entities, db, user, session_id):
-        return {
-            "success": True,
-            "message": "Your tasks listing capability available.",
-            "data": {}
-        }
+        """Handle LIST_MY_TASKS intent using service layer."""
+        from app.modules.task.task_services import TaskAssignService
+        
+        try:
+            result = await TaskAssignService.get_my_tasks(db, user)
+            return result
+        except Exception as e:
+            log.exception(f"Error listing my tasks: {str(e)}")
+            return {
+                "status": "error",
+                "success": False,
+                "message": f"Failed to list your tasks: {str(e)}",
+                "data": {}
+            }
     
     async def _handle_close_task(self, entities, db, user, session_id):
         """Handle CLOSE_TASK intent by calling the workflow function."""
@@ -527,6 +867,97 @@ class Executor:
                 "status": "error",
                 "success": False,
                 "message": str(e) or "Execution failed",
+                "data": {}
+            }
+    
+    async def _handle_update_email(self, entities, db, user, session_id):
+        """Handle UPDATE_EMAIL intent using service layer."""
+        from app.modules.user.user_services import UserServices
+        from app.core.security.input_sanitizer import input_sanitizer
+        
+        username = entities.get('username', entities.get('name', entities.get('user')))
+        email = entities.get('email')
+        
+        if not username:
+            return {
+                "status": "error",
+                "success": False,
+                "message": "Username is required to update email.",
+                "data": {}
+            }
+        
+        if not email:
+            return {
+                "status": "error",
+                "success": False,
+                "message": "Email is required.",
+                "data": {}
+            }
+        
+        # Sanitize email to prevent XSS
+        sanitized_email = input_sanitizer.sanitize_email(email)
+        
+        try:
+            result = await UserServices.update_user_email(db, username, sanitized_email)
+            return result
+        except Exception as e:
+            log.exception(f"Error updating email: {str(e)}")
+            return {
+                "status": "error",
+                "success": False,
+                "message": f"Failed to update email: {str(e)}",
+                "data": {}
+            }
+
+    async def _handle_delete_user(self, entities, db, user, session_id):
+        """Handle DELETE_USER intent using service layer."""
+        from app.modules.auth.auth_services import AuthService
+        from app.core.resolvers.entity_resolver import EntityResolver
+        
+        user_identifier = entities.get('name', entities.get('email', entities.get('username')))
+        
+        if not user_identifier:
+            return {
+                "status": "error",
+                "success": False,
+                "message": "User identifier (name or email) is required to delete a user.",
+                "data": {}
+            }
+        
+        try:
+            # Resolve the user
+            target_user = await EntityResolver.resolve_user(db, user_identifier, session_id)
+            
+            if not target_user:
+                return {
+                    "status": "error",
+                    "success": False,
+                    "message": f"User '{user_identifier}' not found.",
+                    "data": {}
+                }
+            
+            # Prevent self-deletion
+            if target_user.id == user.id:
+                return {
+                    "status": "error",
+                    "success": False,
+                    "message": "You cannot delete your own account.",
+                    "data": {}
+                }
+            
+            # Delete the user using service layer
+            result = await AuthService.delete_user(db, target_user.id, user)
+            
+            log.info(f"User deleted: {target_user.name} (ID: {target_user.id})")
+            
+            return result
+        except Exception as e:
+            log.exception(f"Error deleting user: {str(e)}")
+            await db.rollback()
+            return {
+                "status": "error",
+                "success": False,
+                "message": f"Failed to delete user: {str(e)}",
                 "data": {}
             }
 

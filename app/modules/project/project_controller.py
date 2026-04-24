@@ -12,12 +12,12 @@ class ProjectController:
         
     @staticmethod
     async def update_project(db: AsyncSession, project_id: str, data):
-        await ProjectService.update_project(db, project_id, data)
+        await ProjectService.update_project(db, int(project_id), data)
         return await Response._success_response("Project updated successfully")
         
     @staticmethod
     async def delete_project(db: AsyncSession, project_id: str):
-        await ProjectService.delete_project(db, project_id)
+        await ProjectService.delete_project(db, int(project_id))
         return await Response._success_response("Project deleted successfully")
         
         

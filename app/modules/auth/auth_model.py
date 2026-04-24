@@ -24,11 +24,10 @@ class User(Base):
 
     
     role = relationship("Role", back_populates="users", lazy= "selectin")
-    department = relationship("Department", back_populates="users", lazy="selectin")
+    department = relationship("Department", back_populates="users", lazy="selectin", foreign_keys=[department_id])
     reporting_manager = relationship("User", remote_side=[id], lazy="selectin")
     
-    department = relationship("Department", back_populates="users", foreign_keys=[department_id])
-    
+
 class Role(Base):
     __tablename__ = "roles"
 

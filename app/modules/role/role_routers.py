@@ -12,7 +12,7 @@ async def create_role(data: CreateRoleRequest, db: AsyncSession = Depends(get_db
     return await RoleController.create_role(data, db, current_user)
 
 
-@router.get('/role', response_model=ApiResponse[list[RoleResponse]], summary= "Get All Roles")
+@router.get('/role', summary= "Get All Roles")
 async def get_role(db: AsyncSession = Depends(get_db)):
     return await RoleController.get_roles(db)
 

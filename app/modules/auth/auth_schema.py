@@ -6,8 +6,8 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     role_id: int
-    reporting_manager_id: int | None
-    department_id: int
+    reporting_manager_id: int | None = None
+    department_id: int | None = None
     is_active: bool
     joined_date: date
     
@@ -28,6 +28,7 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str
+    user: dict | None = None
     
     
 class RoleResponse(BaseModel):

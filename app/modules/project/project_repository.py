@@ -48,3 +48,9 @@ class GetProjects:
         result = await db.execute(stmt)
         all_projects = result.scalars().all()
         return all_projects
+
+    @staticmethod
+    async def _get_by_name(db: AsyncSession, name: str):
+        stmt = select(Project).where(Project.name == name)
+        result = await db.execute(stmt)
+        return result.scalars().first()

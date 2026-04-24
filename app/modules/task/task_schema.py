@@ -22,11 +22,11 @@ class PriorityEnum(str, Enum):
 class TaskRequestSchema(BaseModel):
     title: str = Field(..., min_length=3)
     description: str | None = Field(None, max_length=255)
-    project_id: int
-    department_id: int
-    task_type: TaskTypeEnum
-    priority: PriorityEnum
-    due_date: date
+    project_id: int | None = None
+    department_id: int | None = None
+    task_type: TaskTypeEnum = TaskTypeEnum.daily
+    priority: PriorityEnum = PriorityEnum.high
+    due_date: date = Field(default_factory=lambda: datetime.now().date())
 
 class TaskUpdateSchema(BaseModel):
     title: str | None = Field(None, min_length=3)
@@ -60,7 +60,7 @@ class TaskResponseSchema(BaseModel):
 class TaskAssignRequestSchema(BaseModel):
     task_id: int
     user_id: int
-    due_date: date
+    due_date: date = Field(default_factory=lambda: datetime.now().date())
     
 class AssignTaskResponseSchema(BaseModel):
     id: int

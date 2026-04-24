@@ -13,7 +13,6 @@ class MeetingController:
             "title": meeting.title,
             "description": meeting.description,
             "start_time": meeting.start_time,
-            "end_time": meeting.end_time,
             "status": meeting.status,
             "organizer_id": meeting.organizer_id,
             "project_id": meeting.project_id,
@@ -34,7 +33,6 @@ class MeetingController:
                 "title": meeting.title,
                 "description": meeting.description,
                 "start_time": meeting.start_time,
-                "end_time": meeting.end_time,
                 "status": meeting.status,
                 "organizer_id": meeting.organizer_id,
                 "project_id": meeting.project_id,
@@ -46,13 +44,12 @@ class MeetingController:
 
     @staticmethod
     async def _get_meeting_by_id(id: int, db: AsyncSession):
-        meeting = await MeetingService.get_meeting_by_id(db, id)
+        meeting = await MeetingService.get_meeting_by_id(db, int(id))
         response_data = {
             "id": meeting.id,
             "title": meeting.title,
             "description": meeting.description,
             "start_time": meeting.start_time,
-            "end_time": meeting.end_time,
             "status": meeting.status,
             "organizer_id": meeting.organizer_id,
             "project_id": meeting.project_id,
@@ -63,13 +60,12 @@ class MeetingController:
 
     @staticmethod
     async def _update_meeting(id: int, data: MeetingUpdateRequest, db: AsyncSession, current_user):
-        meeting = await MeetingService.update_meeting(db, id, data, current_user)
+        meeting = await MeetingService.update_meeting(db, int(id), data, current_user)
         response_data = {
             "id": meeting.id,
             "title": meeting.title,
             "description": meeting.description,
             "start_time": meeting.start_time,
-            "end_time": meeting.end_time,
             "status": meeting.status,
             "organizer_id": meeting.organizer_id,
             "project_id": meeting.project_id,
@@ -80,5 +76,5 @@ class MeetingController:
 
     @staticmethod
     async def _delete_meeting(id: int, db: AsyncSession, current_user):
-        await MeetingService.delete_meeting(db, id, current_user)
+        await MeetingService.delete_meeting(db, int(id), current_user)
         return await Response._success_response("Meeting deleted successfully")

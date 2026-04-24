@@ -31,7 +31,7 @@ class Task(Base):
     task_id = Column(String(40), default=lambda: str(uuid.uuid4()), index= True, nullable= False)
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
-    project_id = Column(Integer, ForeignKey("projects.id", ondelete="RESTRICT"), index= True, nullable= False)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), index= True, nullable= True)
     department_id = Column(Integer, ForeignKey("departments.id", ondelete="RESTRICT"), index= True, nullable= False)
     task_type = Column(Enum(TaskTypeEnum), default= TaskTypeEnum.daily, nullable=False)
     priority = Column(Enum(PriorityEnum), default= PriorityEnum.high, nullable=False)
@@ -40,6 +40,8 @@ class Task(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    assignments = relationship("TaskAssignment", back_populates="task", cascade="all, delete-orphan")
 
 
 
@@ -56,6 +58,9 @@ class TaskAssignment(Base):
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    task = relationship("Task", back_populates="assignments")
+    assigned_user = relationship("User", foreign_keys=[user_id])
 
     
     

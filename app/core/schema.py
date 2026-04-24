@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Any
 from pydantic.generics import GenericModel
 
 T = TypeVar("T")
@@ -11,16 +11,18 @@ class ApiResponse(GenericModel, Generic[T]):
 
 
 class Response:
+    @staticmethod
     async def _success_response(message: str, data = None):
         return {
             'status' : 'success',
-            'message' : message.capitalize(),
+            'message' : str(message).capitalize(),
             'data' : data
         }
         
-    async def _error_response(message: str, data = None):
+    @staticmethod
+    async def _error_response(message: Any, data = None):
         return {
             'status' : 'error',
-            'message' : message.capitalize(),
+            'message' : str(message).capitalize(),
             'data' : data
         }

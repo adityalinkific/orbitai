@@ -22,6 +22,12 @@ async def get_current_user(request: Request, token: HTTPAuthorizationCredentials
         payload = TokenService._decode_access_token(token.credentials)
 
         email: str | None = payload.get("sub")
+        role_from_token: str | None = payload.get("role")
+
+        # Debug logging
+        print(f"[DEBUG] JWT payload keys: {payload.keys()}")
+        print(f"[DEBUG] Email from token: {email}")
+        print(f"[DEBUG] Role from token: {role_from_token}")
 
         if not email:
             raise HTTPException(
@@ -56,6 +62,15 @@ async def get_current_user(request: Request, token: HTTPAuthorizationCredentials
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail= await Response._error_response("You are blocked. Please contact admin.")
             )
+
+        # Attach role from JWT token to user object for immediate access
+        # This ensures role is available even if database relationship fails
+        if role_from_token:
+            # Normalize role name to uppercase to match capability_resolver expectations
+            user.role_from_token = role_from_token.upper().replace("_", "")
+            print(f"[DEBUG] Attached role_from_token to user: {role_from_token} -> normalized to {user.role_from_token}")
+        else:
+            print(f"[DEBUG] No role_from_token found in JWT payload")
 
         request.state.user = user
         return user

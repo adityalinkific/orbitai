@@ -12,8 +12,47 @@ class UserServices:
     
     @staticmethod
     async def _all_users(db: AsyncSession):
-        result = await GetDetail._all_data(db)
-        return result
+        users = await GetDetail._all_data(db)
+        return [
+            {
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "role": u.role.role if u.role else "N/A"
+            }
+            for u in users
+        ]
+
+    @staticmethod
+    async def list_users(db: AsyncSession):
+        """List all users with proper response format."""
+        users = await UserServices._all_users(db)
+        return {
+            "status": "success",
+            "message": f"Found {len(users)} users",
+            "data": users
+        }
+
+    @staticmethod
+    async def get_users(db: AsyncSession):
+        """Alias for list_users to match config.yaml."""
+        return await UserServices.list_users(db)
+
+    @staticmethod
+    async def update_user_email(db: AsyncSession, username: str, email: str):
+        from app.core.resolvers.entity_resolver import EntityResolver
+        user = await EntityResolver.resolve_user(db, username)
+
+        if not user:
+            return {"status": "error", "message": "User not found", "data": {}}
+
+        try:
+            user.email = email
+            await db.commit()
+            return {"status": "success", "message": f"Updated email for {user.name}", "data": {"id": user.id, "email": user.email}}
+        except Exception as e:
+            await db.rollback()
+            return {"status": "error", "message": str(e), "data": {}}
     
     @staticmethod
     async def _change_password(data: ChangePassword, db: AsyncSession, current_user: User):
@@ -27,11 +66,12 @@ class UserServices:
         try:
             await UserRepository._update({"password": hashed_password}, current_user)
             await db.commit()
-            return
+            return {"status": "success", "message": "Password changed successfully", "data": {"id": current_user.id}}
         except Exception:
             await db.rollback()
             raise
         
+    @staticmethod
     async def _update_user(user_id: int, data: UpdateUserDetailsRequest, db: AsyncSession):
         user_detail = await GetDetails._get_details(db, User, user_id, "user")
         update_data = data.model_dump(exclude_unset=True)
@@ -55,7 +95,11 @@ class UserServices:
             result = await UserRepository._update(update_data, user_detail)
             await db.commit()
             await db.refresh(result)
-            return result
-        except Exception:
+            return {
+                "status": "success",
+                "message": "User updated successfully",
+                "data": {"id": result.id, "name": result.name, "email": result.email}
+            }
+        except Exception as e:
             await db.rollback()
-            raise
+            return {"status": "error", "message": str(e), "data": {}}

@@ -1,0 +1,679 @@
+# ─────────────────────────────────────────────────────────
+# Orbit Assistant — Master Configuration
+# One file drives all intents, permissions, and thresholds.
+# ─────────────────────────────────────────────────────────
+
+confidence_threshold: 0.7
+retry_attempts: 2
+retry_backoff_seconds: 1
+confirmation_timeout_seconds: 60
+context_history_size: 10
+session_timeout_minutes: 30
+
+llm:
+  provider: "groq"
+  model: "llama3-8b-8192"
+
+
+# ─────────────────────────────────────────────────────────
+# Intent Registry — Per-intent RBAC + Service Mapping
+# ─────────────────────────────────────────────────────────
+
+intents:
+
+  # ── Task Intents ──
+  CREATE_TASK:
+    allowed_roles: [super_admin, admin, manager]
+    service: TaskService
+    method: create_task
+    description: "Create a new task"
+    destructive: false
+    examples:
+      - create task
+      - add task
+      - new task
+      - make a task
+      - add a new task
+
+  LIST_TASKS:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: TaskService
+    method: get_all_tasks
+    description: "List all tasks"
+    destructive: false
+    examples:
+      - list tasks
+      - show tasks
+      - all tasks
+      - get tasks
+      - display tasks
+
+  GET_TASK:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: TaskService
+    method: get_task_detail
+    description: "Get task details by ID"
+    destructive: false
+    examples:
+      - get task
+      - show task
+      - task details
+      - view task
+      - task info
+
+  UPDATE_TASK:
+    allowed_roles: [super_admin, admin, manager]
+    service: TaskService
+    method: update_task
+    description: "Update an existing task"
+    destructive: false
+    examples:
+      - update task
+      - modify task
+      - edit task
+      - change task
+      - update task details
+
+  DELETE_TASK:
+    allowed_roles: [super_admin, admin, manager]
+    service: TaskService
+    method: delete_task
+    description: "Delete a task"
+    is_destructive: true
+    examples:
+      - delete task
+      - remove task
+      - erase task
+      - cancel task
+
+  ASSIGN_TASK:
+    allowed_roles: [super_admin, admin, manager]
+    service: TaskAssignService
+    method: assign_task
+    description: "Assign a task to a user"
+    destructive: false
+    examples:
+      - assign task
+      - give task
+      - allocate task
+      - assign task to user
+
+  LIST_MY_TASKS:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: TaskAssignService
+    method: get_my_tasks
+    description: "List tasks assigned to you"
+    destructive: false
+    examples:
+      - my tasks
+      - list my tasks
+      - show my tasks
+      - my assigned tasks
+      - what are my tasks
+
+  # ── Project Intents ──
+  CREATE_PROJECT:
+    allowed_roles: [super_admin, admin, manager]
+    service: ProjectService
+    method: create_project
+    description: "Create a new project"
+    destructive: false
+    examples:
+      - create project
+      - start project
+      - add project
+      - new project
+      - make a project
+
+  LIST_PROJECTS:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ProjectService
+    method: get_all_projects
+    description: "List all projects"
+    destructive: false
+    examples:
+      - list projects
+      - show projects
+      - all projects
+      - get projects
+      - display projects
+
+  GET_PROJECT:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ProjectService
+    method: get_project_by_id
+    description: "Get project details by ID"
+    destructive: false
+    examples:
+      - get project
+      - show project
+      - project details
+      - view project
+      - project info
+
+  UPDATE_PROJECT:
+    allowed_roles: [super_admin, admin, manager]
+    service: ProjectService
+    method: update_project
+    description: "Update an existing project"
+    destructive: false
+    examples:
+      - update project
+      - modify project
+      - edit project
+      - change project
+      - rename project
+
+  DELETE_PROJECT:
+    allowed_roles: [super_admin, admin, manager]
+    service: ProjectService
+    method: delete_project
+    description: "Delete a project"
+    is_destructive: true
+    examples:
+      - delete project
+      - remove project
+      - erase project
+      - cancel project
+
+  # ── Department Intents ──
+  CREATE_DEPARTMENT:
+    allowed_roles: [super_admin, admin]
+    service: DepartmentService
+    method: create_department
+    description: "Create a new department"
+    destructive: false
+    examples:
+      - create department
+      - add department
+      - new department
+      - make a department
+
+  LIST_DEPARTMENTS:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: DepartmentService
+    method: get_departments
+    description: "List all departments"
+    destructive: false
+    examples:
+      - list departments
+      - show departments
+      - all departments
+      - get departments
+      - display departments
+
+  GET_DEPARTMENT:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: DepartmentService
+    method: get_department
+    description: "Get department details by ID"
+    destructive: false
+    examples:
+      - get department
+      - show department
+      - department details
+      - view department
+      - department info
+
+  UPDATE_DEPARTMENT:
+    allowed_roles: [super_admin, admin]
+    service: DepartmentService
+    method: update_department
+    description: "Update an existing department"
+    destructive: false
+    examples:
+      - update department
+      - rename department
+      - modify department
+      - change department
+      - edit department
+
+  DELETE_DEPARTMENT:
+    allowed_roles: [super_admin, admin]
+    service: DepartmentService
+    method: delete_department
+    description: "Delete a department"
+    is_destructive: true
+    examples:
+      - delete department
+      - remove department
+      - erase department
+
+  # ── User Intents ──
+  LIST_USERS:
+    allowed_roles: [super_admin, admin, manager]
+    service: UserService
+    method: get_users
+    description: "List all users"
+    destructive: false
+    examples:
+      - list users
+      - show users
+      - all users
+      - get users
+      - display users
+
+  UPDATE_USER:
+    allowed_roles: [super_admin, admin]
+    service: UserService
+    method: update_user
+    description: "Update user details"
+    destructive: false
+    examples:
+      - update user
+      - modify user
+      - edit user
+      - change user
+
+  UPDATE_EMAIL:
+    allowed_roles: [super_admin, admin]
+    service: Executor
+    method: update_email
+    description: "Update user email address"
+    destructive: false
+    examples:
+      - update email
+      - change email
+      - modify email
+
+  ADD_MEMBER:
+    allowed_roles: [super_admin, admin]
+    service: AuthService
+    method: register_user
+    description: "Register a new user / employee"
+    destructive: false
+    examples:
+      - add member
+      - add user
+      - new member
+      - register user
+
+  REGISTER_USER:
+    allowed_roles: [super_admin, admin]
+    service: AuthService
+    method: register_user
+    description: "Register a new user"
+    destructive: false
+    examples:
+      - register user
+      - create user
+      - add user
+      - new user
+
+  # ── Role Intents ──
+  LIST_ROLES:
+    allowed_roles: [super_admin, admin, manager]
+    service: RoleService
+    method: get_roles
+    description: "List all roles"
+    destructive: false
+    examples:
+      - list roles
+      - show roles
+      - all roles
+      - get roles
+
+  UPDATE_ROLE:
+    allowed_roles: [super_admin, admin]
+    service: RoleService
+    method: update_role
+    description: "Update a role"
+    destructive: false
+    examples:
+      - update role
+      - modify role
+      - edit role
+      - change role
+
+  UPDATE_PERMISSIONS:
+    allowed_roles: [super_admin, admin]
+    service: RoleService
+    method: update_role
+    description: "Update role permissions"
+    destructive: false
+    examples:
+      - update permissions
+      - change permissions
+      - modify permissions
+
+  # ── Email Intents ──
+  SEND_EMAIL:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ServiceBridge
+    method: _handle_send_email
+    description: "Send an email"
+    destructive: false
+  SYSTEM_STATUS:
+    allowed_roles: [super_admin, admin]
+    service: ServiceBridge
+    method: _handle_system_status
+    description: "Show system status"
+    destructive: false
+  ENTERPRISE_REASONING:
+    allowed_roles: [super_admin, admin]
+    service: ServiceBridge
+    method: _handle_enterprise_reasoning
+    description: "Enterprise reasoning and strategic planning"
+    destructive: false
+    examples:
+      - send email
+      - email
+      - send mail
+      - compose email
+
+  SEND_NOTIFICATION:
+    allowed_roles: [super_admin, admin, manager]
+    service: ServiceBridge
+    method: _handle_send_notification
+    description: "Send a notification"
+    destructive: false
+    examples:
+      - send notification
+      - notify
+      - broadcast message
+
+  # ── Admin/Enterprise Analytics & Dashboards ──
+  AI_ORG_INSIGHTS:
+    allowed_roles: [super_admin, admin]
+    service: ServiceBridge
+    method: _handle_ai_org_insights
+    description: "AI-powered organization insights"
+    destructive: false
+    examples:
+      - ai organization insights
+      - show ai insights
+      - analyze organization
+
+  DEPARTMENT_STATUS_REPORT:
+    allowed_roles: [super_admin, admin, manager]
+    service: ServiceBridge
+    method: _handle_department_status_report
+    description: "Department status report"
+    destructive: false
+    examples:
+      - department status report
+      - show department status
+      - department report
+
+  LIST_MEETINGS:
+    allowed_roles: [super_admin, admin, manager, employee]
+    service: ServiceBridge
+    method: _handle_list_meetings
+    description: "List all meetings"
+    destructive: false
+    examples:
+      - list all meetings
+      - show meetings
+      - upcoming meetings
+
+  GET_MEETING:
+    allowed_roles: [super_admin, admin, manager, employee]
+    service: ServiceBridge
+    method: _handle_get_meeting
+    description: "Get meeting details"
+    destructive: false
+    examples:
+      - show meeting
+      - get meeting
+      - meeting details
+
+  ORG_PERFORMANCE_SUMMARY:
+    allowed_roles: [super_admin, admin]
+    service: ServiceBridge
+    method: _handle_org_performance_summary
+    description: "Organization performance summary"
+    destructive: false
+    examples:
+      - organization performance
+      - org performance summary
+      - show performance
+
+  SHOW_ORG_DASHBOARD:
+    allowed_roles: [super_admin, admin]
+    service: ServiceBridge
+    method: _handle_show_org_dashboard
+    description: "Show organization dashboard"
+    destructive: false
+    examples:
+      - show organization dashboard
+      - org dashboard
+      - company overview
+
+  TEAM_PROGRESS_REPORT:
+    allowed_roles: [super_admin, admin, manager]
+    service: ServiceBridge
+    method: _handle_team_progress_report
+    description: "Team progress report"
+    destructive: false
+    examples:
+      - team progress report
+      - show team progress
+      - team status
+
+  # ── Meta Intents ──
+  LIST_MANAGEABLE_TASKS:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: Executor
+    method: LIST_MANAGEABLE_TASKS
+    description: "List all assistant capabilities"
+    destructive: false
+    examples:
+      - what can you do
+      - capabilities
+      - help
+      - assistant capabilities
+
+  CLOSE_TASK:
+    allowed_roles: [super_admin, admin, manager, employee]
+    service: Executor
+    method: close_task
+    description: "Close a task"
+    destructive: false
+    examples:
+      - close task
+      - complete task
+      - finish task
+      - mark task complete
+
+  # ── User Meta Intents ──
+  LIST_MY_INFO:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: Executor
+    method: LIST_MY_INFO
+    description: "Show your profile information"
+    destructive: false
+    examples:
+      - who am i
+      - my info
+      - my profile
+      - show my information
+      - my details
+
+  GREETING:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: Executor
+    method: GREETING
+    description: "Greet the user"
+    destructive: false
+    examples:
+      - hello
+      - hi
+      - hello orbit
+      - hey
+      - good morning
+
+
+  CREATE_MEETING:
+    allowed_roles: [super_admin, admin, head, manager]
+    service: ServiceBridge
+    method: _handle_create_meeting
+    description: "Create a meeting"
+    destructive: false
+    examples:
+      - create meeting
+      - schedule meeting
+
+  UPDATE_MEETING:
+    allowed_roles: [super_admin, admin, head, manager]
+    service: ServiceBridge
+    method: _handle_update_meeting
+    description: "Update a meeting"
+    destructive: false
+    examples:
+      - update meeting
+      - change meeting
+
+  INVITE_USER:
+    allowed_roles: [super_admin, admin, head, manager]
+    service: ServiceBridge
+    method: _handle_invite_user
+    description: "Invite user to a meeting"
+    destructive: false
+    examples:
+      - invite user
+      - invite to meeting
+
+  SHOW_DEPARTMENT_DASHBOARD:
+    allowed_roles: [super_admin, admin, head]
+    service: ServiceBridge
+    method: _handle_show_department_dashboard
+    description: "Show department dashboard"
+    destructive: false
+    examples:
+      - show department dashboard
+      - department dashboard
+
+  SHOW_TEAM_DASHBOARD:
+    allowed_roles: [super_admin, admin, head, manager]
+    service: ServiceBridge
+    method: _handle_show_team_dashboard
+    description: "Show team dashboard"
+    destructive: false
+    examples:
+      - show team dashboard
+      - team dashboard
+
+  REPORT_BLOCKER:
+    allowed_roles: [super_admin, admin, manager, employee, intern]
+    service: ServiceBridge
+    method: _handle_report_blocker
+    description: "Report a blocker on a task"
+    destructive: false
+    examples:
+      - report blocker
+      - i am stuck
+      - task is blocked
+      - i have a blocker
+
+  DELETE_MEETING:
+    allowed_roles: [super_admin, admin, manager]
+    service: ServiceBridge
+    method: _handle_delete_meeting
+    description: "Delete a meeting"
+    destructive: true
+    examples:
+      - delete meeting
+      - cancel meeting
+      - remove meeting
+
+# ─────────────────────────────────────────────────────────
+# Workflows — Multi-step compound operations
+# ─────────────────────────────────────────────────────────
+
+workflows:
+  HIRE_CANDIDATE:
+    allowed_roles: [super_admin, admin]
+    description: "Hire a new candidate (multi-step workflow)"
+    steps:
+      - intent: ADD_MEMBER
+        description: "Register employee profile"
+      - intent: ASSIGN_TASK
+        description: "Assign onboarding tasks"
+        data:
+          task_id: 1
+        data_map:
+          user_id: "{id}"
+
+  START_PROJECT:
+    allowed_roles: [super_admin, admin, manager]
+    description: "Start a new project (multi-step workflow)"
+    steps:
+      - intent: CREATE_PROJECT
+        description: "Create the project"
+      - intent: CREATE_TASK
+        description: "Create initial kickoff task"
+        data:
+          title: "Project Kickoff"
+          priority: "high"
+          task_type: "daily"
+        data_map:
+          project_id: "{id}"
+          department_id: "{department_id}"   # ADD THIS
+
+
+# ─────────────────────────────────────────────────────────
+# Suggestion Map — Role-based smart next-step hints
+# ─────────────────────────────────────────────────────────
+
+suggestion_map:
+  super_admin:
+    task: ["Create task", "Assign task", "Delete task", "View all tasks"]
+    project: ["Create project", "Delete project", "View projects"]
+    department: ["Create department", "View departments"]
+    user: ["Add member", "Update user", "List users"]
+  admin:
+    task: ["Create task", "Assign task", "Delete task", "View all tasks"]
+    project: ["Create project", "View projects"]
+    department: ["Create department", "View departments"]
+    user: ["Add member", "List users"]
+  manager:
+    task: ["Create task", "Assign task", "View all tasks"]
+    project: ["View projects"]
+    department: ["View departments"]
+    user: ["List users"]
+  employee:
+    task: ["View my tasks", "View all tasks"]
+    project: ["View projects"]
+    department: ["View departments"]
+  intern:
+    task: ["View my tasks"]
+    project: ["View projects"]
+    department: ["View departments"]
+
+
+# ─────────────────────────────────────────────────────────
+# Capability Descriptions — Human-readable for /capabilities
+# ─────────────────────────────────────────────────────────
+
+capability_descriptions:
+  CREATE_TASK: "Create new tasks"
+  LIST_TASKS: "View all tasks"
+  GET_TASK: "View task details"
+  UPDATE_TASK: "Update existing tasks"
+  DELETE_TASK: "Delete tasks"
+  ASSIGN_TASK: "Assign tasks to users"
+  LIST_MY_TASKS: "View your assigned tasks"
+  CREATE_PROJECT: "Create new projects"
+  LIST_PROJECTS: "View all projects"
+  GET_PROJECT: "View project details"
+  UPDATE_PROJECT: "Update existing projects"
+  DELETE_PROJECT: "Delete projects"
+  CREATE_DEPARTMENT: "Create new departments"
+  LIST_DEPARTMENTS: "View all departments"
+  GET_DEPARTMENT: "View department details"
+  DELETE_DEPARTMENT: "Delete departments"
+  LIST_USERS: "View all users"
+  UPDATE_USER: "Update user details"
+  UPDATE_EMAIL: "Update user email address"
+  ADD_MEMBER: "Register new users"
+  REGISTER_USER: "Register a new user"
+  LIST_ROLES: "View all roles"
+  UPDATE_ROLE: "Update role permissions"
+  UPDATE_PERMISSIONS: "Update role permissions"
+  LIST_MY_INFO: "Show your profile information"
+  LIST_MANAGEABLE_TASKS: "List all assistant capabilities"
+  CLOSE_TASK: "Close a task"
+  GREETING: "Greet the user"
+  HIRE_CANDIDATE: "Run hire candidate workflow"
+  START_PROJECT: "Run start project workflow"
+  SEND_EMAIL: "Send email messages"

@@ -46,9 +46,12 @@ async def response_validation_exception_handler(
 
 
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.exception(exc)
+    import traceback
+    print("\n========== ORBIT ERROR ==========")
+    traceback.print_exc()
+    print("=================================\n")
 
     return JSONResponse(
         status_code=500,
-        content= await Response._error_response("Internal server error")
+        content= await Response._error_response(str(exc))
     )

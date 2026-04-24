@@ -33,7 +33,7 @@ async def update_task(task_id: int,  data: TaskUpdateSchema,  db: AsyncSession =
 async def delete_task(task_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_roles("super_admin", "admin"))):
     return await TaskController._delete_task(db, task_id)
 
-@router.get("/task-detail", response_model= ApiResponse[list[TaskResponseSchema]], summary= "Get All Task Details")
+@router.get("/task-detail", summary= "Get All Task Details")
 async def get_task_detail(db: AsyncSession = Depends(get_db), _=Depends(require_roles("super_admin", "admin"))):
     return await TaskController._get_all_task_detail(db)
 

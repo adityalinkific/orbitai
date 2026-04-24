@@ -21,57 +21,26 @@ class DepartmentController:
 
     @staticmethod
     async def _get_departments(db: AsyncSession):
-        departments = await DepartmentService._get_departments(db)
-        data = []
-        
-        for row in departments:
-            dept, head_name, total_members, total_projects = row
-            data.append(
-                {
-                    "id": dept.id,
-                    "name": dept.name,
-                    "description": dept.description,
-                    "department_head_id": dept.department_head_id,
-                    "department_head_name": head_name,
-                    "total_members": total_members,
-                    "total_associated_projects": total_projects,
-                    "is_active": dept.is_active,
-                    "created_at": dept.created_at,
-                    "updated_at": dept.updated_at
-                }
-            )
-
-        return await Response._success_response("Departments fetched successfully", data)
+        response = await DepartmentService._get_departments(db)
+        # The service already processes the data, just return it
+        return response
         
         
         
     @staticmethod
     async def _get_perticular_department(department_id, db):
-        row = await DepartmentService._get_department(department_id, db)
-        dept, head_name, total_members, total_projects = row
-        data = {
-            "id": dept.id,
-            "name": dept.name,
-            "description": dept.description,
-            "department_head_id": dept.department_head_id,
-            "department_head_name": head_name,
-            "total_members": total_members,
-            "total_associated_projects": total_projects,
-            "is_active": dept.is_active,
-            "created_at": dept.created_at,
-            "updated_at": dept.updated_at
-        }
-
-        return await Response._success_response("Department fetched successfully", data)
+        response = await DepartmentService._get_department(int(department_id), db)
+        # The service already processes the data, just return it
+        return response
         
     
     @staticmethod
     async def _update_department(department_id, data, db):
-        await DepartmentService._update_department(department_id, data, db)
+        await DepartmentService._update_department(int(department_id), data, db)
         return await Response._success_response('Department updated successfully.')
         
     
     @staticmethod
     async def _delete_department(department_id, db):
-        await DepartmentService._delete(department_id, db)
+        await DepartmentService._delete(int(department_id), db)
         return await Response._success_response('Department deleted successfully.')

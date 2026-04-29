@@ -19,6 +19,9 @@ _confirmation_repository = PendingConfirmationRepository()
 # Legacy in-memory store for emails (to be migrated)
 _pending_emails: dict[str, dict[str, Any]] = {}
 
+# In-memory fallback for confirmations (used when DB unavailable)
+_pending_confirmations: dict[str, dict[str, Any]] = {}
+
 async def store_pending_email(recipient: str, subject: str, body: str, sent_by: str, sender_name: str = None) -> str:
     import uuid
     request_id = str(uuid.uuid4())
@@ -56,9 +59,11 @@ async def create_confirmation(
     Returns a confirmation prompt for the user.
     Stores in database for persistence and horizontal scaling.
     """
+    log.info(f"[CONFIRMATION_CREATE] request_id={request_id} intent={intent} entity={entity} user_id={user_id}")
+    
     if db is None:
         # Fallback to in-memory if no DB session (should not happen in production)
-        log.warning("No DB session provided for confirmation, using in-memory fallback")
+        log.warning("[CONFIRMATION_CREATE] No DB session provided, using in-memory fallback")
         confirmation = {
             "request_id": request_id,
             "intent": intent,
@@ -70,6 +75,7 @@ async def create_confirmation(
             "status": "pending",
         }
         _pending_confirmations[request_id] = confirmation
+        log.info(f"[CONFIRMATION_CREATE] Stored in memory: {request_id}")
     else:
         # Store in database
         expires_at = datetime.utcnow() + timedelta(seconds=timeout_seconds)
@@ -84,8 +90,9 @@ async def create_confirmation(
                 expires_at=expires_at
             )
             await db.commit()
+            log.info(f"[CONFIRMATION_CREATE] Stored in database: {request_id} expires_at={expires_at}")
         except Exception as e:
-            log.error(f"Failed to store confirmation in database: {str(e)}")
+            log.error(f"[CONFIRMATION_CREATE] Failed to store in database: {str(e)}")
             # Fallback to in-memory
             confirmation = {
                 "request_id": request_id,
@@ -98,6 +105,7 @@ async def create_confirmation(
                 "status": "pending",
             }
             _pending_confirmations[request_id] = confirmation
+            log.info(f"[CONFIRMATION_CREATE] Fallback to memory: {request_id}")
 
     log.warning(
         f"Confirmation required: {intent} on {entity} | request_id={request_id}"
@@ -126,15 +134,18 @@ async def process_confirmation(
     Process a user's confirmation response.
     Returns the original action data if confirmed, or cancellation.
     """
+    log.info(f"[CONFIRMATION_PROCESS] request_id={request_id} confirmed={confirmed}")
+    
     # Check database first
     if db is not None:
         try:
             confirmation = await _confirmation_repository.get_confirmation(db, request_id)
             if confirmation:
+                log.info(f"[CONFIRMATION_PROCESS] Found in database: {request_id} status={confirmation.status}")
                 if not confirmed:
                     await _confirmation_repository.cancel_confirmation(db, request_id)
                     await db.commit()
-                    log.info(f"Action cancelled by user: {request_id}")
+                    log.info(f"[CONFIRMATION_PROCESS] Cancelled by user: {request_id}")
                     return {
                         "success": False,
                         "message": "Action cancelled.",
@@ -145,7 +156,7 @@ async def process_confirmation(
                 if success:
                     import json
                     payload = json.loads(confirmation.payload) if confirmation.payload else {}
-                    log.info(f"Action confirmed: {request_id}")
+                    log.info(f"[CONFIRMATION_PROCESS] Confirmed: {request_id} intent={confirmation.intent}")
                     return {
                         "success": True,
                         "intent": confirmation.intent,
@@ -154,17 +165,21 @@ async def process_confirmation(
                         "message": "Confirmed. Executing action...",
                     }
                 else:
+                    log.warning(f"[CONFIRMATION_PROCESS] Expired or already processed: {request_id}")
                     return {
                         "success": False,
                         "message": "Confirmation expired or already processed.",
                     }
+            else:
+                log.warning(f"[CONFIRMATION_PROCESS] Not found in database: {request_id}")
         except Exception as e:
-            log.error(f"Failed to process confirmation from database: {str(e)}")
+            log.error(f"[CONFIRMATION_PROCESS] Database error: {str(e)}")
     
     # Fallback to in-memory
     pending = _pending_confirmations.get(request_id)
     
     if request_id in _pending_emails:
+        log.info(f"[CONFIRMATION_PROCESS] Found in email pending: {request_id}")
         pending_email = _pending_emails.pop(request_id)
         # Note: the actual sending happens in ServiceBridge or orchestrated differently via execute_confirmed_action.
         # But wait, to keep this clean with the process_confirmation return structure:
@@ -177,7 +192,7 @@ async def process_confirmation(
         }
 
     if not pending:
-        log.warning(f"No pending confirmation found: {request_id}")
+        log.warning(f"[CONFIRMATION_PROCESS] No pending confirmation found: {request_id}")
         return {
             "success": False,
             "message": "No pending confirmation found for this request.",
@@ -187,7 +202,7 @@ async def process_confirmation(
     elapsed = time.time() - pending["created_at"]
     if elapsed > pending["timeout_seconds"]:
         _pending_confirmations.pop(request_id, None)
-        log.warning(f"Confirmation expired: {request_id} (elapsed={elapsed:.0f}s)")
+        log.warning(f"[CONFIRMATION_PROCESS] Expired: {request_id} (elapsed={elapsed:.0f}s)")
         return {
             "success": False,
             "message": "Confirmation expired. Please re-issue the command.",
@@ -195,7 +210,7 @@ async def process_confirmation(
 
     if not confirmed:
         _pending_confirmations.pop(request_id, None)
-        log.info(f"Action cancelled by user: {request_id}")
+        log.info(f"[CONFIRMATION_PROCESS] Cancelled by user: {request_id}")
         return {
             "success": False,
             "message": "Action cancelled.",
@@ -203,7 +218,7 @@ async def process_confirmation(
 
     # Confirmed — return original action data for execution
     _pending_confirmations.pop(request_id, None)
-    log.info(f"Action confirmed: {request_id}")
+    log.info(f"[CONFIRMATION_PROCESS] Confirmed: {request_id} intent={pending['intent']}")
     return {
         "success": True,
         "intent": pending["intent"],

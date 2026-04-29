@@ -140,6 +140,9 @@ class Executor:
                     "success": False,
                     "message": safety_result["reason"]
                 })
+            
+            # Use resolved entities (names converted to IDs) for execution
+            entities = safety_result.get("resolved_entities", entities)
         except Exception as e:
             log.error(f"Safety middleware error for {intent}: {str(e)}")
             # Log safety error
@@ -295,9 +298,12 @@ class Executor:
                     db, session_id, user, intent, entities, before_state, None,
                     "error", str(e)
                 )
+                # Return structured error with intent preserved - NOT "unknown intent"
                 return self._normalize_response({
                     "success": False,
-                    "message": f"Error executing intent: {str(e)}"
+                    "message": f"Execution failed: {str(e)}",
+                    "error_type": "EXECUTION_ERROR",
+                    "intent": intent  # Preserve the detected intent
                 })
         
         log.warning(f"No handler for intent: {intent}")
@@ -306,9 +312,12 @@ class Executor:
             db, session_id, user, intent, entities, before_state, None,
             "error", f"Intent '{intent}' not supported"
         )
+        # Return structured error with intent preserved - NOT "unknown intent"
         return self._normalize_response({
             "success": False,
-            "message": f"Intent '{intent}' not supported"
+            "message": f"Intent '{intent}' is not supported by the system.",
+            "error_type": "UNSUPPORTED_INTENT",
+            "intent": intent  # Preserve the detected intent
         })
     
     def _capture_before_state(self, intent: str, entities: Dict[str, Any], db, user) -> Dict[str, Any]:

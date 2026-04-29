@@ -4,8 +4,8 @@ from sqlalchemy import select
 
 from app.modules.orbit_assistant.engine.context_manager import context_manager
 from app.modules.orbit_assistant.engine.nlu_engine import nlu_engine
-from app.modules.orbit_assistant.engine.intent_validator import intent_validator
-from app.modules.orbit_assistant.engine.rbac_validator import rbac_validator
+from app.modules.orbit_assistant.engine.intent_engine import intent_engine
+from app.modules.orbit_assistant.engine.rbac_engine import rbac_engine
 from app.modules.orbit_assistant.engine.capability_resolver import capability_resolver
 from app.modules.orbit_assistant.engine.scope_guard import scope_guard
 from app.modules.orbit_assistant.engine.executor import executor
@@ -80,6 +80,12 @@ class AssistantService:
                 role_res = await db.execute(role_stmt)
                 user_role = role_res.scalar() or "employee"
                 log.info(f"Extracted user role from database: {user_role}")
+            
+            # Ensure user_role is always a string (handle Role ORM objects)
+            if hasattr(user_role, 'role'):
+                user_role = user_role.role
+            elif not isinstance(user_role, str):
+                user_role = str(user_role)
 
             # STEP 1 — CREATE / RESUME SESSION
             session_ctx = await context_manager.get_or_create_session(
@@ -126,20 +132,42 @@ class AssistantService:
                     intent=intent,
                 )
 
-            # STEP 3.6 — VALIDATE INTENT & ROLE (RBAC)
+            # STEP 3.6 — RBAC PERMISSION CHECK (RBAC ENGINE - SINGLE AUTHORITY)
             log.info(f"Pipeline Stage: RBAC Validation - Intent: {intent}, Role: {user_role}")
-            validated = intent_validator.validate(nlu_result, config)
-            intent = validated["intent"]
-
-            # Use capability_resolver for centralized RBAC validation
-            rbac_check = rbac_validator.validate_role(intent, user_role)
-            if not rbac_check["allowed"]:
-                log.warning(f"Pipeline Stage: RBAC Validation Failed - Reason: {rbac_check['reason']}")
+            
+            # Use RBACEngine for centralized permission checking (ONLY AUTHORITY)
+            # RBACEngine handles role normalization internally via normalize_role()
+            # Wrap in safe block to prevent pipeline crash on RBAC failure
+            try:
+                rbac_result = rbac_engine.check_permission(role=user_role, intent=intent)
+            except Exception as rbac_error:
+                log.error(f"RBAC validation crash: {str(rbac_error)}")
                 return self._safe_response(
                     success=False,
                     session_id=session_id,
-                    bot_reply=rbac_check["reason"],
+                    bot_reply="RBAC validation failed. Please contact system administrator.",
                     intent=intent,
+                    data={
+                        "status": "error",
+                        "stage": "rbac",
+                        "intent": intent,
+                        "reason": "RBAC system error"
+                    }
+                )
+            
+            if not rbac_result["allowed"]:
+                log.warning(f"Pipeline Stage: RBAC Validation Failed - Reason: {rbac_result['reason']}")
+                return self._safe_response(
+                    success=False,
+                    session_id=session_id,
+                    bot_reply=rbac_result["reason"],
+                    intent=intent,
+                    data={
+                        "status": "error",
+                        "stage": "rbac",
+                        "intent": intent,
+                        "reason": rbac_result["reason"]
+                    }
                 )
             log.info(f"Pipeline Stage: RBAC Validation Passed")
 
@@ -310,6 +338,8 @@ class AssistantService:
                 session_id=session_id or "",
                 bot_reply=user_message,
                 intent=intent or "ERROR",
+                data=None,  # Add this line
+                message=None,  # Add this line
             )
 
     @staticmethod
@@ -322,9 +352,15 @@ class AssistantService:
         message: str = None,
     ) -> dict:
         """GLOBAL SAFETY NORMALIZER — Every response MUST pass through here."""
+        import uuid
         status = "success" if success else "error"
         msg = message or bot_reply or "Action completed."
         reply = bot_reply or msg or "Action completed."
+        
+        # Convert UUID object to string for JSON serialization
+        if session_id and isinstance(session_id, uuid.UUID):
+            session_id = str(session_id)
+        
         return {
             "status": status,
             "success": bool(success),

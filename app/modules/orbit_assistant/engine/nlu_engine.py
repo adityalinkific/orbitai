@@ -220,8 +220,8 @@ INTENT_PATTERNS = {
     ],
     "DELETE_USER": [
         r"delete user (?P<name>[\w\s]+)",
-        r"delete (?P<name>[\w\s]+) user",
         r"remove user (?P<name>[\w\s]+)",
+        r"delete (?P<name>[\w\s]+) user",
         r"test DELETE_USER", r"DELETE_USER"
     ],
     "LIST_DEPARTMENTS": [r"list all departments", r"show all departments", r"list departments", r"show departments", r"test LIST_DEPARTMENTS", r"LIST_DEPARTMENTS"],
@@ -338,7 +338,12 @@ def _normalize_input(user_message: str) -> str:
         r"\bcan i\b",
         r"\bhelp me\b",
         r"\bjust\b",
-        r"\bneed to\b"
+        r"\bneed to\b",
+        r"\bthe\b",
+        r"\bhello\b",
+        r"\bhi\b",
+        r"\bhey\b",
+        r"\bhowdy\b"
     ]
     
     for phrase in polite_phrases:
@@ -358,7 +363,7 @@ async def parse_command(
 ) -> Dict[str, Any]:
 
     resolved_model = model or settings.GROK_MODEL
-    log.info(f"Detected Intent: Processing '{user_message[:80]}...'")
+    log.info(f"Detected Intent: Processing '{user_message[:80]}'...")
 
     # 0. PREPROCESSING - Normalize input by removing polite words and helper verbs
     clean_msg = _normalize_input(user_message)
@@ -398,6 +403,22 @@ async def parse_command(
                     "entities": entities,
                     "confidence": 1.0
                 }
+
+    # 2. RAG-BASED INTENT MATCHING (SECONDARY METHOD - SEMANTIC SIMILARITY)
+    try:
+        from .intent_rag import intent_rag
+        rag_result = intent_rag.match_intent(clean_msg, top_k=1)
+        
+        if rag_result and rag_result.get("confidence", 0) >= 0.7:
+            log.info(f"Detected Intent: {rag_result['intent']} (RAG match, confidence: {rag_result['confidence']:.2f})")
+            return {
+                "intent": normalize_intent(rag_result['intent']),
+                "entities": {},  # RAG doesn't extract entities, will need entity extraction
+                "confidence": rag_result['confidence'],
+                "method": "rag"
+            }
+    except Exception as e:
+        log.warning(f"RAG intent matching failed: {str(e)}")
 
     # 2. FALLBACK TO LLM (ONLY IF REGEX FAILS)
     log.info(f"Detected Intent: No regex match, trying LLM")
@@ -449,13 +470,56 @@ async def parse_command(
         raw = response.choices[0].message.content
         cleaned = raw.strip()
 
+        # Harden JSON parsing - extract FIRST valid JSON object only
+        # Handle cases where LLM returns {json1}{json2} or trailing content
         start_idx = cleaned.find("{")
-        end_idx = cleaned.rfind("}")
-
-        if start_idx != -1 and end_idx != -1:
-            cleaned = cleaned[start_idx : end_idx + 1]
-
-        parsed = json.loads(cleaned)
+        if start_idx == -1:
+            log.error(f"No JSON found in LLM response: {raw[:100]}")
+            raise json.JSONDecodeError("No JSON found", raw, 0)
+        
+        # Find matching closing brace for the first JSON object
+        brace_count = 0
+        in_string = False
+        escape_next = False
+        end_idx = -1
+        
+        for i in range(start_idx, len(cleaned)):
+            char = cleaned[i]
+            
+            if escape_next:
+                escape_next = False
+                continue
+            
+            if char == '\\':
+                escape_next = True
+                continue
+            
+            if char == '"':
+                in_string = not in_string
+                continue
+            
+            if not in_string:
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_idx = i
+                        break
+        
+        if end_idx == -1:
+            log.error(f"Unclosed JSON object in LLM response: {raw[:100]}")
+            raise json.JSONDecodeError("Unclosed JSON object", raw, start_idx)
+        
+        # Extract only the first valid JSON object
+        cleaned = cleaned[start_idx : end_idx + 1]
+        
+        # Validate JSON structure before parsing
+        try:
+            parsed = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            log.error(f"Invalid JSON from LLM: {cleaned[:100]}")
+            raise
         
         raw_intent = parsed.get("intent", "UNKNOWN")
         parsed["intent"] = normalize_intent(raw_intent)

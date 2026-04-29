@@ -16,6 +16,19 @@ from app.modules.orbit_assistant.engine.logger import get_logger
 log = get_logger("context_manager")
 log.info("Context Manager initialized")
 
+
+def is_valid_uuid(value: Any) -> bool:
+    """Check if value is a valid UUID v4 string or UUID object."""
+    if not value:
+        return False
+    try:
+        if isinstance(value, uuid.UUID):
+            return True
+        uuid.UUID(str(value))
+        return True
+    except (ValueError, AttributeError):
+        return False
+
 # ==========================================================
 
 # Context Manager Service (Singleton)
@@ -64,38 +77,55 @@ class ContextManager:
 
         from app.modules.orbit_assistant.orbit_assistant_model import ChatSession
 
+        # ---------- Validate session_id format if provided ----------
+        if session_id and not is_valid_uuid(session_id):
+            log.warning(f"Invalid session_id format rejected: {session_id}")
+            # Force creation of new session with valid UUID
+            session_id = None
+
         # ---------- Resume Existing Session ----------
         if session_id:
+            # Convert string to UUID object if needed
+            if isinstance(session_id, str):
+                try:
+                    session_id = uuid.UUID(session_id)
+                except ValueError:
+                    log.warning(f"Invalid UUID string format: {session_id}")
+                    session_id = None
 
-            if session_id in self._sessions:
-                log.info(f"Session resumed (memory): {session_id}")
-                return self._sessions[session_id]
+            if session_id:
+                # Check memory cache
+                session_key = str(session_id)
+                if session_key in self._sessions:
+                    log.info(f"Session resumed (memory): {session_key} (user_id: {user_id})")
+                    return self._sessions[session_key]
 
-            stmt = select(ChatSession).where(
-                ChatSession.session_id == session_id,
-                ChatSession.user_id == user_id,
-                ChatSession.is_active.is_(True),
-            )
-
-            result = await db.execute(stmt)
-            session_row = result.scalars().first()
-
-            if session_row:
-                session_row.last_active_at = datetime.now(timezone.utc)
-                await db.flush()
-
-                ctx = self._build_context(
-                    session_id=session_id,
-                    user_id=user_id,
-                    role=role,
+                # Check database
+                stmt = select(ChatSession).where(
+                    ChatSession.session_id == session_id,
+                    ChatSession.user_id == user_id,
+                    ChatSession.is_active.is_(True),
                 )
 
-                self._sessions[session_id] = ctx
-                log.info(f"Session resumed (DB): {session_id}")
-                return ctx
+                result = await db.execute(stmt)
+                session_row = result.scalars().first()
+
+                if session_row:
+                    session_row.last_active_at = datetime.now(timezone.utc)
+                    await db.flush()
+
+                    ctx = self._build_context(
+                        session_id=session_key,
+                        user_id=user_id,
+                        role=role,
+                    )
+
+                    self._sessions[session_key] = ctx
+                    log.info(f"Session resumed (DB): {session_key} (user_id: {user_id})")
+                    return ctx
 
         # ---------- Create New Session ----------
-        new_session_id = str(uuid.uuid4())
+        new_session_id = uuid.uuid4()
 
         session_row = ChatSession(
             session_id=new_session_id,
@@ -106,15 +136,16 @@ class ContextManager:
         db.add(session_row)
         await db.flush()
 
+        session_key = str(new_session_id)
         ctx = self._build_context(
-            session_id=new_session_id,
+            session_id=session_key,
             user_id=user_id,
             role=role,
         )
 
-        self._sessions[new_session_id] = ctx
+        self._sessions[session_key] = ctx
 
-        log.info(f"New session created: {new_session_id}")
+        log.info(f"New session created: {session_key} (user_id: {user_id}, role: {role})")
         return ctx
 
     # ------------------------------------------------------
@@ -168,8 +199,11 @@ class ContextManager:
             except Exception:
                 pass
 
+        # Convert string session_id to UUID object for DB
+        session_uuid = uuid.UUID(session_id) if isinstance(session_id, str) else session_id
+
         msg = ChatMessage(
-            session_id=session_id,
+            session_id=session_uuid,
             sender=sender_enum,
             message=message,
             intent=intent,

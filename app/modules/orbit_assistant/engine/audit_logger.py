@@ -68,10 +68,21 @@ class AuditLogger:
             elif result.lower() in ("error", "failure"):
                 result_enum = AuditResult.error
 
+            # Harden role serialization - convert ORM object to string
+            role_str = str(role) if role else ""
+            # Handle Role ORM object
+            if hasattr(role, 'role'):
+                role_str = role.role
+            # Handle string representation of Role object
+            elif isinstance(role_str, str) and "Role object at" in role_str:
+                role_str = "UNKNOWN"
+            elif hasattr(role, 'value'):
+                role_str = role.value
+
             audit_entry = ChatAuditLog(
                 session_id=session_id,
                 user_id=user_id,
-                role=role,
+                role=role_str,
                 department_id=department_id,
                 intent=intent,
                 action_taken=action_taken,
@@ -83,10 +94,10 @@ class AuditLogger:
             )
 
             db.add(audit_entry)
-            await db.flush()
+            await db.commit()
 
             system_log.info(
-                f"[AUDIT] user={user_id} role={role} dept={department_id} "
+                f"[AUDIT] user={user_id} role={role_str} dept={department_id} "
                 f"intent={intent} result={result} session={session_id}"
             )
 

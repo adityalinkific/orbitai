@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'audit_immutability'
-down_revision = None
+down_revision = '003_fix_task_assignment_fk_cascade'
 branch_labels = None
 depends_on = None
 

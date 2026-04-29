@@ -63,7 +63,7 @@ class ExecutionValidator:
         
         # Validate dependencies using DependencyValidator
         try:
-            await validate_capability_dependencies(intent, db, user, entities)
+            await validate_intent_dependencies(intent, db, user, entities)
         except DependencyValidationError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -74,4 +74,4 @@ class ExecutionValidator:
 
 
 # Import the dependency validator function
-from app.core.dependency_validator import validate_capability_dependencies
+from app.core.dependency_validator import validate_intent_dependencies

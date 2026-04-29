@@ -3,7 +3,7 @@ ORBIT Assistant Capabilities API
 Returns role-filtered capabilities based on authenticated user's JWT token.
 """
 from fastapi import APIRouter, Depends
-from app.modules.orbit_assistant.engine.capability_resolver import capability_resolver
+from app.modules.orbit_assistant.engine.rbac_engine import rbac_engine
 from app.core.dependency import get_current_user
 
 router = APIRouter(prefix="/assistant", tags=["Assistant"])
@@ -43,8 +43,8 @@ def get_capabilities(current_user = Depends(get_current_user)):
                 "error": "Unable to determine user role from JWT or database"
             }
 
-        # Get role-filtered capabilities
-        capabilities = capability_resolver.get_user_capabilities(user_role)
+        # Get role-filtered capabilities from RBACEngine
+        capabilities = rbac_engine.get_role_capabilities(user_role)
 
         return {
             "role": user_role.upper(),

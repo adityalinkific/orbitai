@@ -39,8 +39,8 @@ class DependencyValidator:
         return user
     
     @staticmethod
-    async def validate_role_exists(db: AsyncSession, role_id: int) -> Role:
-        """Validate that a role exists."""
+    async def validate_role_in_db(db: AsyncSession, role_id: int) -> Role:
+        """Validate that a role exists in database (DATA VALIDATION - NOT RBAC authorization)."""
         stmt = select(Role).where(Role.id == role_id)
         result = await db.execute(stmt)
         role = result.scalars().first()
@@ -286,7 +286,7 @@ class DependencyValidator:
             DependencyValidationError: If validation fails
         """
         # Validate role exists
-        await DependencyValidator.validate_role_exists(db, role_id)
+        await DependencyValidator.validate_role_in_db(db, role_id)
         
         # Validate department exists
         await DependencyValidator.validate_department_exists(db, department_id)
@@ -372,17 +372,17 @@ class DependencyValidator:
         return True
 
 
-async def validate_capability_dependencies(
+async def validate_intent_dependencies(
     capability: str,
     db: AsyncSession,
     user: User,
     entities: Dict[str, Any]
 ) -> bool:
     """
-    Validate dependencies for a specific capability.
+    Validate dependencies for a specific intent (DATA VALIDATION - NOT RBAC authorization).
     
     Args:
-        capability: The capability/intent name
+        capability: The intent name
         db: Database session
         user: Current user
         entities: Extracted entities from the request

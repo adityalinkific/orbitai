@@ -4,6 +4,7 @@ Stores chat sessions, message history, and governance audit logs.
 """
 
 import uuid
+from sqlalchemy.dialects.postgresql import UUID
 import enum
 
 from sqlalchemy import (
@@ -47,8 +48,8 @@ class ChatSession(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id = Column(
-        String(36), unique=True, index=True, nullable=False,
-        default=lambda: str(uuid.uuid4()),
+        UUID(as_uuid=True), unique=True, index=True, nullable=False,
+        default=uuid.uuid4,
     )
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"),
@@ -84,7 +85,7 @@ class ChatMessage(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id = Column(
-        String(36),
+        UUID(as_uuid=True),
         ForeignKey("chat_sessions.session_id", ondelete="CASCADE"),
         index=True, nullable=False,
     )
@@ -109,7 +110,7 @@ class ChatAuditLog(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id = Column(
-        String(36),
+        UUID(as_uuid=True),
         ForeignKey("chat_sessions.session_id", ondelete="SET NULL"),
         index=True, nullable=True,
     )
@@ -147,7 +148,7 @@ class ConversationState(Base):
         index=True, nullable=False,
     )
     session_id = Column(
-        String(36),
+        UUID(as_uuid=True),
         ForeignKey("chat_sessions.session_id", ondelete="CASCADE"),
         index=True, nullable=False,
     )
@@ -175,7 +176,7 @@ class AssistantLog(Base):
         index=True, nullable=False,
     )
     session_id = Column(
-        String(36),
+        UUID(as_uuid=True),
         ForeignKey("chat_sessions.session_id", ondelete="SET NULL"),
         index=True, nullable=True,
     )

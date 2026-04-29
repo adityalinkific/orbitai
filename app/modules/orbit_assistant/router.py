@@ -9,6 +9,7 @@ from app.core.dependency import get_db, get_current_user
 from app.modules.orbit_assistant.assistant_service import assistant_service
 from app.modules.orbit_assistant.schemas import ChatRequest
 from app.modules.orbit_assistant.engine.executor import Executor
+from app.modules.orbit_assistant.engine.rbac_engine import rbac_engine
 
 router = APIRouter(prefix="/api/v1/assistant", tags=["Orbit Assistant"])
 
@@ -48,8 +49,8 @@ async def capabilities(current_user=Depends(get_current_user)):
     else:
         user_role = "EMPLOYEE"  # Default fallback
     
-    # Get role-filtered capabilities
-    capabilities = capability_resolver.get_user_capabilities(user_role)
+    # Get role-filtered capabilities from RBACEngine
+    capabilities = rbac_engine.get_role_capabilities(user_role)
     
     return {
         "role": user_role.upper(),
@@ -67,6 +68,7 @@ async def user_history(
     db: AsyncSession = Depends(get_db)
 ):
     """Returns chat history for current user."""
+    import uuid
     from app.modules.orbit_assistant.orbit_assistant_model import ChatMessage, ChatSession
     from sqlalchemy import select
     
@@ -92,7 +94,7 @@ async def user_history(
         "total_messages": len(messages),
         "messages": [
             {
-                "session_id": m.session_id,
+                "session_id": str(m.session_id) if isinstance(m.session_id, uuid.UUID) else m.session_id,
                 "sender": m.sender.value,
                 "message": m.message,
                 "intent": m.intent,
@@ -109,11 +111,23 @@ async def session_history(
     db: AsyncSession = Depends(get_db)
 ):
     """Returns chat messages for a specific session."""
+    import uuid
     from app.modules.orbit_assistant.orbit_assistant_model import ChatMessage
     from sqlalchemy import select
     
+    # Convert string to UUID for database query
+    try:
+        session_uuid = uuid.UUID(session_id)
+    except ValueError:
+        return {
+            "session_id": session_id,
+            "total_messages": 0,
+            "messages": [],
+            "error": "Invalid session_id format"
+        }
+    
     stmt = select(ChatMessage).where(
-        ChatMessage.session_id == session_id
+        ChatMessage.session_id == session_uuid
     ).order_by(ChatMessage.created_at.asc())
     
     result = await db.execute(stmt)

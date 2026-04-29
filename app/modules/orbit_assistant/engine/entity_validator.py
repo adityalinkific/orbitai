@@ -83,9 +83,9 @@ class EntityValidator:
         return True, None
     
     @staticmethod
-    def validate_role(role: str) -> Tuple[bool, Optional[str]]:
+    def validate_role_format(role: str) -> Tuple[bool, Optional[str]]:
         """
-        Validate role name format.
+        Validate role name format (DATA VALIDATION - NOT RBAC authorization).
         
         Returns:
             (is_valid, error_message)
@@ -182,7 +182,7 @@ class EntityValidator:
         if intent in ["UPDATE_ROLE", "UPDATE_PERMISSIONS", "ASSIGN_ROLE"]:
             role = entities.get("role")
             if role:
-                is_valid, error = EntityValidator.validate_role(role)
+                is_valid, error = EntityValidator.validate_role_format(role)
                 if not is_valid:
                     errors.append(error)
                 else:

@@ -10,6 +10,7 @@ from app.core.middleware.error_handlers import http_exception_handler, response_
 from app.core.middleware.cors_middleware import register_cors
 from app.core.middleware.security_headers import register_security_headers
 from app.core.middleware.rate_limit import limiter, custom_rate_limit_exceeded_handler
+from app.core.middleware.session_validation import SessionValidationMiddleware
 from app.core.config import settings
 from app.modules.orbit_assistant.engine.logger import get_logger
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -37,6 +38,7 @@ app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
 
 register_cors(app)
 register_security_headers(app)
+app.add_middleware(SessionValidationMiddleware)
 
 # Global Error Handling Middleware
 @app.middleware("http")

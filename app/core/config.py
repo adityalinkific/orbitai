@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     ASSISTANT_CONFIDENCE_THRESHOLD: float = 0.8
     CHAT_SESSION_TIMEOUT_MINUTES: int = 30
 
+    # Redis Configuration for Celery
+    REDIS_URL: str = "redis://localhost:6379/0"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

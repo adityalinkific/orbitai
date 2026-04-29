@@ -115,7 +115,6 @@ class ResponseBuilder:
                     item.get("name")
                     or item.get("title")
                     or item.get("username")
-                    or item.get("email")
                     or item.get("role")
                     or f"Item {i}"
                 )

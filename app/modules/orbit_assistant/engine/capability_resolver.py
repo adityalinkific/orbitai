@@ -1,6 +1,7 @@
 """
-Capability Resolver — Dynamic Role-Based Access Control
-Central authority for intent authorization and capability visibility.
+Capability Resolver — Intent Configuration Registry
+PURE intent configuration holder - NO RBAC authorization logic.
+RBAC authorization moved to RBACEngine for clean separation.
 """
 
 from typing import List, Dict, Any
@@ -100,8 +101,9 @@ GLOBAL_INTENTS = {
 
 
 # ─────────────────────────────────────────────
-# ROLE CAPABILITY REGISTRY (SINGLE SOURCE OF TRUTH)
-# No module defines permissions independently
+# ROLE CAPABILITY REGISTRY (LEGACY - KEPT FOR REFERENCE)
+# NOTE: RBAC authorization moved to RBACEngine
+# This registry is kept for metadata/reference only
 # ─────────────────────────────────────────────
 
 ROLE_CAPABILITIES = {
@@ -285,90 +287,35 @@ ROLE_CAPABILITIES = {
 
 
 # ─────────────────────────────────────────────
-# CAPABILITY RESOLVER
+# CAPABILITY RESOLVER (PURE INTENT CONFIG HOLDER)
+# NO RBAC authorization logic - moved to RBACEngine
 # ─────────────────────────────────────────────
 
 class CapabilityResolver:
     """
-    Dynamic capability resolution based on user role.
-    Enforces enterprise governance boundaries.
+    Pure intent configuration registry.
+    NO RBAC authorization logic - use RBACEngine for permission checks.
+    Provides intent metadata and configuration only.
     """
 
     def __init__(self):
         self.global_intents = GLOBAL_INTENTS
-        self.role_capabilities = ROLE_CAPABILITIES
+        self.role_capabilities = ROLE_CAPABILITIES  # Kept for metadata/reference only
 
-    def get_user_capabilities(self, role: str) -> List[str]:
+    def get_all_intents(self) -> List[str]:
         """
-        Get allowed capabilities for a user based on their role.
-
-        Rules:
-        1. Extract role from JWT token (passed as parameter)
-        2. Read ROLE_CAPABILITIES[user.role]
-        3. Return ONLY allowed intents
-        4. NEVER expose GLOBAL_INTENTS
-        5. NEVER merge capabilities across roles
-        6. Assistant responses must reflect ONLY permitted actions
-
-        Args:
-            role: User's role from JWT token
+        Get all registered intents from the global intent pool.
+        Used for validation and safety checks.
 
         Returns:
-            List of allowed intent strings for the role
-
-        Raises:
-            HTTPException: If role is not recognized
+            List of all intent strings
         """
-        role_upper = role.upper() if role else ""
-
-        if role_upper not in self.role_capabilities:
-            log.error(f"Unknown role in capability resolution: {role}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Unknown role: {role}. Cannot resolve capabilities."
-            )
-
-        capabilities = self.role_capabilities[role_upper]
-        log.info(f"Capability resolution: role={role_upper} capabilities={len(capabilities)}")
-
-        return sorted(list(capabilities))
-
-    def validate_intent(self, intent: str, role: str) -> Dict[str, Any]:
-        """
-        Validate if a user's role permits execution of an intent.
-
-        Args:
-            intent: The intent to validate
-            role: User's role from JWT token
-
-        Returns:
-            Dict with 'allowed' boolean and optional 'reason' string
-        """
-        role_upper = role.upper() if role else ""
-
-        if role_upper not in self.role_capabilities:
-            log.error(f"Unknown role in intent validation: {role}")
-            return {
-                "allowed": False,
-                "reason": f"Unknown role: {role}. Cannot validate intent."
-            }
-
-        allowed_intents = self.role_capabilities[role_upper]
-
-        if intent in allowed_intents:
-            log.info(f"Intent ALLOWED: role={role_upper} intent={intent}")
-            return {"allowed": True, "reason": None}
-        else:
-            log.warning(f"Intent DENIED: role={role_upper} intent={intent}")
-            return {
-                "allowed": False,
-                "reason": f"Role '{role}' is not permitted to execute '{intent}'. "
-                         f"Required role capability not found."
-            }
+        return sorted(list(self.global_intents))
 
     def get_role_info(self, role: str) -> Dict[str, Any]:
         """
         Get role metadata including hierarchy level and capability count.
+        This is metadata only - NOT for authorization decisions.
 
         Args:
             role: User's role from JWT token
